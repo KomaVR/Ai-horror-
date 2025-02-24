@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flight Simulator Mobile 3D (Debug, Third-Person, Drag)</title>
+    <title>Flight Simulator Mobile 3D (PC & Drag, Camera Follows Plane)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: Arial; background: #87CEEB; touch-action: none; }
         canvas { width: 100%; height: 100vh; display: block; }
@@ -28,21 +28,22 @@
     </div>
     <div id="startScreen">
         <h1>Flight Sim 3D</h1>
-        <p>Drag to steer, slide throttle to fly in 3rd person!</p>
+        <p>Use WASD to move, arrows to lift, or drag to steer on mobile.</p>
         <button onclick="startGame()">Start</button>
     </div>
     <script>
+        // Initialize WebGL
         const canvas = document.getElementById('glCanvas');
         const gl = canvas.getContext('webgl');
         if (!gl) {
-            alert('WebGL not supported! Try a modern mobile browser (e.g., Chrome or Safari).');
+            alert('WebGL not supported! Try a modern browser.');
             throw new Error('WebGL failed');
         }
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Shaders with debug output
+        // Vertex Shader
         const vsSource = `
             attribute vec3 aPosition;
             attribute vec3 aColor;
@@ -54,6 +55,8 @@
                 vColor = aColor;
             }
         `;
+
+        // Fragment Shader
         const fsSource = `
             precision mediump float;
             varying vec3 vColor;
@@ -62,18 +65,21 @@
             }
         `;
 
+        // Compile Shaders
         const vertexShader = gl.createShader(gl.VERTEX_SHADER);
         gl.shaderSource(vertexShader, vsSource);
         gl.compileShader(vertexShader);
         if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-            alert('Vertex shader error: ' + gl.getShaderInfoLog(vertexShader));
+            console.error('Vertex shader error:', gl.getShaderInfoLog(vertexShader));
+            alert('Vertex shader failed: ' + gl.getShaderInfoLog(vertexShader));
             throw new Error('Vertex shader compilation failed');
         }
         const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
         gl.shaderSource(fragmentShader, fsSource);
         gl.compileShader(fragmentShader);
         if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-            alert('Fragment shader error: ' + gl.getShaderInfoLog(fragmentShader));
+            console.error('Fragment shader error:', gl.getShaderInfoLog(fragmentShader));
+            alert('Fragment shader failed: ' + gl.getShaderInfoLog(fragmentShader));
             throw new Error('Fragment shader compilation failed');
         }
         const program = gl.createProgram();
@@ -81,28 +87,30 @@
         gl.attachShader(program, fragmentShader);
         gl.linkProgram(program);
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            alert('Program linking error: ' + gl.getProgramInfoLog(program));
+            console.error('Program linking error:', gl.getProgramInfoLog(program));
+            alert('Program linking failed: ' + gl.getProgramInfoLog(program));
             throw new Error('Program linking failed');
         }
         gl.useProgram(program);
 
-        // Plane geometry (simple triangle)
+        // Plane Geometry (simple triangle)
         const planeVertices = new Float32Array([
-            0.0, 0.5, 0.0,  1.0, 0.0, 0.0,  // Red nose
-           -0.5,-0.5, 0.0,  0.0, 1.0, 0.0,  // Green left wing
-            0.5,-0.5, 0.0,  0.0, 0.0, 1.0   // Blue right wing
+            0.0, 0.5, 0.0,  1.0, 0.0, 0.0,  // Nose (red)
+           -0.5,-0.5, 0.0,  0.0, 1.0, 0.0,  // Left wing (green)
+            0.5,-0.5, 0.0,  0.0, 0.0, 1.0   // Right wing (blue)
         ]);
         const planeIndices = new Uint16Array([0, 1, 2]);
 
-        // Terrain geometry (flat square)
+        // Terrain Geometry (flat square)
         const terrainVertices = new Float32Array([
-           -10.0, 0.0,-10.0,  0.2, 0.5, 0.2,  // Green terrain
-            10.0, 0.0,-10.0,  0.2, 0.5, 0.2,
-            10.0, 0.0, 10.0,  0.2, 0.5, 0.2,
-           -10.0, 0.0, 10.0,  0.2, 0.5, 0.2
+           -20.0, 0.0,-20.0,  0.2, 0.5, 0.2,  // Green terrain
+            20.0, 0.0,-20.0,  0.2, 0.5, 0.2,
+            20.0, 0.0, 20.0,  0.2, 0.5, 0.2,
+           -20.0, 0.0, 20.0,  0.2, 0.5, 0.2
         ]);
         const terrainIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
+        // Buffers
         const planeVBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, planeVBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, planeVertices, gl.STATIC_DRAW);
@@ -125,12 +133,24 @@
         const modelViewMatrix = gl.getUniformLocation(program, 'uModelViewMatrix');
         const projectionMatrix = gl.getUniformLocation(program, 'uProjectionMatrix');
 
-        // Game state (third-person view)
+        // Game State
         let pitch = 0, roll = 0, yaw = 0, throttle = 0, altitude = 1, speed = 0, posX = 0, posZ = 0;
         let gameState = 'start';
         const startScreen = document.getElementById('startScreen');
+        const keys = {};
 
-        // Drag controls for mobile (third-person steering)
+        // PC Controls (WASD and Arrows)
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault(); // Prevent scrolling
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // Mobile Touch Controls
         let touchStart = { x: 0, y: 0 };
         let isDragging = false;
 
@@ -146,10 +166,10 @@
             if (!isDragging || gameState !== 'flying') return;
             e.preventDefault();
             const touchEnd = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            const deltaX = (touchEnd.x - touchStart.x) / canvas.width * 2; // Normalize
+            const deltaX = (touchEnd.x - touchStart.x) / canvas.width * 2;
             const deltaY = (touchEnd.y - touchStart.y) / canvas.height * 2;
-            yaw += deltaX * 0.05; // Turn left/right
-            roll = Math.max(-0.5, Math.min(0.5, roll + deltaY * 0.05)); // Climb/dive
+            yaw += deltaX * 0.05;
+            roll = Math.max(-0.5, Math.min(0.5, roll + deltaY * 0.05));
             touchStart = touchEnd;
         });
 
@@ -169,11 +189,26 @@
             setTimeout(() => startScreen.style.display = 'none', 1000);
         }
 
+        function updatePCControls() {
+            if (gameState !== 'flying') return;
+
+            if (keys['w']) speed = Math.min(0.3, speed + 0.005); // Forward
+            if (keys['s']) speed = Math.max(0, speed - 0.005);  // Backward
+            if (keys['a']) yaw -= 0.01;                          // Turn left
+            if (keys['d']) yaw += 0.01;                          // Turn right
+            if (keys['arrowup']) altitude += 0.05;               // Lift up
+            if (keys['arrowdown']) altitude = Math.max(0, altitude - 0.05); // Descend (don't go below 0)
+            if (keys['arrowleft']) roll -= 0.01;                 // Roll left
+            if (keys['arrowright']) roll += 0.01;                // Roll right
+        }
+
         function render() {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             if (gameState === 'flying') {
-                // Physics (simplified for mobile)
+                updatePCControls();
+
+                // Physics
                 speed = Math.max(0, Math.min(0.3, speed + (throttle * 0.005 - speed * 0.01)));
                 const lift = 1.2 * speed * speed * Math.sin(roll);
                 altitude += lift - 0.01;
@@ -184,27 +219,27 @@
                     altitude = 0;
                     if (speed > 0.1) {
                         gameState = 'crashed';
-                        document.getElementById('endMsg').textContent = 'Crashed!';
+                        alert('Crashed!');
                         document.getElementById('endScreen').style.display = 'block';
                     }
                 }
 
-                // HUD
+                // Update HUD
                 document.getElementById('alt').textContent = altitude.toFixed(1);
                 document.getElementById('spd').textContent = (speed * 100).toFixed(0);
             }
 
-            // Projection matrix (third-person view)
+            // Projection Matrix
             const aspect = canvas.width / canvas.height;
             const pMatrix = [
                 1.5 / aspect, 0, 0, 0,
                 0, 1.5, 0, 0,
                 0, 0, -1, -1,
-                0, 0, -5, 1  // Camera behind plane
+                0, 0, -5, 1
             ];
             gl.uniformMatrix4fv(projectionMatrix, false, pMatrix);
 
-            // Third-person camera (behind and above plane)
+            // Camera Matrix (Third-Person View, Following Plane)
             const viewMatrix = [
                 Math.cos(yaw), 0, -Math.sin(yaw), 0,
                 0, 1, 0, 0,
@@ -212,7 +247,7 @@
                 -posX - Math.cos(yaw) * 3, -altitude - 2, -posZ - Math.sin(yaw) * 3, 1
             ];
 
-            // Render terrain
+            // Render Terrain
             gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBuffer);
             gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
             gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
@@ -220,7 +255,7 @@
             gl.uniformMatrix4fv(modelViewMatrix, false, viewMatrix);
             gl.drawElements(gl.TRIANGLES, terrainIndices.length, gl.UNSIGNED_SHORT, 0);
 
-            // Render plane
+            // Render Plane
             gl.bindBuffer(gl.ARRAY_BUFFER, planeVBuffer);
             gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
             gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
@@ -237,7 +272,8 @@
             requestAnimationFrame(render);
         }
 
-        gl.clearColor(0.53, 0.81, 0.92, 1.0); // Sky blue
+        // Initialize WebGL
+        gl.clearColor(0.53, 0.81, 0.92, 1.0); // Light blue background
         gl.enable(gl.DEPTH_TEST);
         render();
     </script>
