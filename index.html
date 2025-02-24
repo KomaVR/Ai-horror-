@@ -20,11 +20,16 @@
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
-    <div id="ui">Artifacts: <span id="artifactCount">0</span>/10 | Notes: <span id="noteCount">0</span></div>
+    <div id="ui">
+        Room: <span id="roomName">Foyer</span> | 
+        Artifacts: <span id="artifactCount">0</span>/10 | 
+        Notes: <span id="noteCount">0</span>
+    </div>
     <div id="message"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
         const canvas = document.getElementById('gameCanvas');
+        const roomNameUI = document.getElementById('roomName');
         const artifactCountUI = document.getElementById('artifactCount');
         const noteCountUI = document.getElementById('noteCount');
         const message = document.getElementById('message');
@@ -34,103 +39,120 @@
         const renderer = new THREE.WebGLRenderer({ canvas });
         renderer.setSize(window.innerWidth, window.innerHeight);
 
-        // Extensive room data with lore and content
+        // Room definitions with lore and content
         const rooms = [
-            { id: 'foyer', x: 0, z: 0, color: 0x333333, doors: ['library', 'kitchen', 'study', 'hallway'], objects: [
-                { type: 'note', text: '1923, Edwin: "Tonight, we transcend death."', x: 2, z: -2 }
+            { id: 'foyer', x: 0, z: 0, color: 0x333333, doors: ['library', 'kitchen', 'study'], objects: [
+                { type: 'note', text: '1923, Edwin: "Tonight, we summon eternity."', x: 2, z: -2 }
             ]},
-            { id: 'library', x: -10, z: 0, color: 0x442200, doors: ['foyer', 'hallway'], objects: [
-                { type: 'puzzle', x: -2, z: -2, clue: 'Arrange books: FEAR', key: 'journal', state: [false, false, false, false], order: [2, 0, 1, 3] },
-                { type: 'note', text: 'Clara: "Edwin’s madness took Lily from me."', x: 2, z: -2 }
+            { id: 'library', x: -15, z: 0, color: 0x442200, doors: ['foyer', 'hallway'], objects: [
+                { type: 'puzzle', x: -2, z: -2, clue: 'Arrange books: FEAR', key: 'Edwin’s Journal', state: [false, false, false, false], order: [2, 0, 1, 3] },
+                { type: 'note', text: 'Clara: "He’s lost to his books."', x: 2, z: -2 }
             ]},
-            { id: 'kitchen', x: 10, z: 0, color: 0x555555, doors: ['foyer', 'dining'], objects: [
-                { type: 'search', x: 2, z: -2, key: 'knife', chance: 0.2 },
-                { type: 'note', text: 'Thomas: "I’ll cut the ropes myself if I must."', x: -2, z: 2 }
+            { id: 'kitchen', x: 15, z: 0, color: 0x555555, doors: ['foyer', 'dining'], objects: [
+                { type: 'search', x: 2, z: -2, key: 'Knife', chance: 0.2 },
+                { type: 'note', text: 'Thomas: "I’ll cut through this nightmare."', x: -2, z: 2 }
             ]},
-            { id: 'study', x: 0, z: -10, color: 0x332211, doors: ['foyer', 'parlor'], objects: [
-                { type: 'note', text: 'Edwin: "The Wraith demands a price—Lily’s soul."', x: 2, z: -2, easterEgg: 'xAI carved on desk' }
+            { id: 'study', x: 0, z: -15, color: 0x332211, doors: ['foyer', 'parlor'], objects: [
+                { type: 'note', text: 'Edwin: "Lily’s soul was the price."', x: 2, z: -2, easterEgg: 'xAI logo on wall' }
             ]},
-            { id: 'dining', x: 20, z: 0, color: 0x442200, doors: ['kitchen', 'cellar'], objects: [
-                { type: 'note', text: 'Servant: "Blood stained the table that night."', x: 0, z: 2 }
+            { id: 'dining', x: 30, z: 0, color: 0x442200, doors: ['kitchen', 'cellar'], objects: [
+                { type: 'note', text: 'Servant: "Blood pooled under the chandelier."', x: 0, z: 2 }
             ]},
-            { id: 'parlor', x: 0, z: -20, color: 0x223322, doors: ['study', 'greenhouse'], objects: [
-                { type: 'search', x: 2, z: -2, key: 'greenhouseKey', chance: 0.3 },
-                { type: 'note', text: 'Clara: "The greenhouse was my sanctuary."', x: -2, z: 2 }
+            { id: 'parlor', x: 15, z: -15, color: 0x223322, doors: ['study', 'greenhouse'], objects: [
+                { type: 'search', x: 2, z: -2, key: 'Greenhouse Key', chance: 0.3 },
+                { type: 'note', text: 'Clara: "The parlor was my refuge."', x: -2, z: 2 }
             ]},
-            { id: 'greenhouse', x: 10, z: -20, color: 0x114422, doors: ['parlor'], objects: [
-                { type: 'note', text: 'Clara: "I tried to flee, but the vines grew thorns."', x: 2, z: -2, needs: 'greenhouseKey' }
+            { id: 'greenhouse', x: 30, z: -15, color: 0x114422, doors: ['parlor'], objects: [
+                { type: 'note', text: 'Clara: "Thorns trapped me here."', x: 2, z: -2, needs: 'Greenhouse Key' }
             ]},
-            { id: 'servant', x: -10, z: -20, color: 0x333333, doors: ['foyer'], objects: [
-                { type: 'note', text: 'Maid: "Lily screamed as the shadows took her."', x: 0, z: 2 }
+            { id: 'servant', x: -15, z: -15, color: 0x333333, doors: ['foyer'], objects: [
+                { type: 'note', text: 'Maid: "Lily’s screams still echo."', x: 0, z: 2 }
             ]},
-            { id: 'hallway', x: -10, z: -10, color: 0x333333, doors: ['library', 'bedroom', 'attic', 'guest'], objects: [] },
-            { id: 'bedroom', x: -20, z: -10, color: 0x222266, doors: ['hallway'], objects: [
-                { type: 'puzzle', x: -2, z: -2, clue: 'Safe code: 1923', key: 'locket', solved: false },
-                { type: 'note', text: 'Clara: "My locket holds her memory."', x: 2, z: -2 }
+            { id: 'hallway', x: -15, z: -30, color: 0x333333, doors: ['library', 'bedroom', 'attic'], objects: [
+                { type: 'note', text: 'Thomas: "The hallway hides our sins."', x: 2, z: -2 }
             ]},
-            { id: 'thomasRoom', x: -20, z: 0, color: 0x332211, doors: ['hallway'], objects: [
-                { type: 'search', x: 2, z: -2, key: 'dagger', chance: 0.25 },
-                { type: 'note', text: 'Thomas: "I’ll kill it or die trying."', x: -2, z: 2 }
+            { id: 'bedroom', x: -30, z: -30, color: 0x222266, doors: ['hallway'], objects: [
+                { type: 'puzzle', x: -2, z: -2, clue: 'Safe code: 1923', key: 'Clara’s Locket', solved: false },
+                { type: 'note', text: 'Clara: "My locket holds her last smile."', x: 2, z: -2 }
             ]},
-            { id: 'lilyRoom', x: -30, z: -10, color: 0x662244, doors: ['hallway'], objects: [
-                { type: 'puzzle', x: -2, z: -2, clue: 'Match toys: Bear, Doll, Train', key: 'doll', solved: false },
-                { type: 'note', text: 'Lily: "Mommy, the shadow talks to me."', x: 2, z: -2 }
+            { id: 'thomasRoom', x: -30, z: -15, color: 0x332211, doors: ['hallway'], objects: [
+                { type: 'search', x: 2, z: -2, key: 'Thomas’s Dagger', chance: 0.25 },
+                { type: 'note', text: 'Thomas: "I’ll end this curse."', x: -2, z: 2 }
             ]},
-            { id: 'guest', x: -10, z: -30, color: 0x223322, doors: ['hallway'], objects: [
-                { type: 'note', text: 'Guest: "I heard crying from the walls."', x: 0, z: 2 }
+            { id: 'lilyRoom', x: -45, z: -30, color: 0x662244, doors: ['hallway'], objects: [
+                { type: 'puzzle', x: -2, z: -2, clue: 'Match toys: Bear, Doll, Train', key: 'Lily’s Doll', solved: false },
+                { type: 'note', text: 'Lily: "The shadow took my toys."', x: 2, z: -2 }
             ]},
-            { id: 'attic', x: -20, z: -20, color: 0x444444, doors: ['hallway'], objects: [
-                { type: 'search', x: 0, z: -2, key: 'mirror', chance: 0.3, needs: 'crowbar' },
-                { type: 'note', text: 'Thomas: "The mirror showed me her death."', x: 2, z: 2, easterEgg: 'Grok was our cat' }
+            { id: 'guest', x: -15, z: -45, color: 0x223322, doors: ['hallway'], objects: [
+                { type: 'note', text: 'Guest: "I saw her ghost in the mirror."', x: 0, z: 2 }
             ]},
-            { id: 'bathroom', x: -30, z: 0, color: 0x555555, doors: ['hallway'], objects: [
-                { type: 'note', text: 'Clara: "Blood in the sink—Lily’s gone."', x: 2, z: -2 }
+            { id: 'attic', x: -30, z: -45, color: 0x444444, doors: ['hallway'], objects: [
+                { type: 'search', x: 0, z: -2, key: 'Broken Mirror', chance: 0.3, needs: 'Crowbar' },
+                { type: 'note', text: 'Thomas: "The attic holds our shame."', x: 2, z: 2, easterEgg: 'Grok was our pet' }
             ]},
-            { id: 'balcony', x: -20, z: -30, color: 0x333333, doors: ['hallway'], objects: [
-                { type: 'note', text: 'Edwin: "The stars aligned for our doom."', x: 0, z: 2 }
+            { id: 'bathroom', x: -45, z: -15, color: 0x555555, doors: ['hallway'], objects: [
+                { type: 'note', text: 'Clara: "Blood filled the tub."', x: 2, z: -2 }
             ]},
-            { id: 'cellar', x: 20, z: -10, color: 0x111111, doors: ['dining', 'ritual'], objects: [
-                { type: 'key', x: 2, z: -2, key: 'crowbar' },
-                { type: 'note', text: 'Servant: "The cellar hid our shame."', x: -2, z: 2 }
+            { id: 'balcony', x: -30, z: -60, color: 0x333333, doors: ['hallway'], objects: [
+                { type: 'note', text: 'Edwin: "The stars mocked our fate."', x: 0, z: 2 }
             ]},
-            { id: 'ritual', x: 30, z: -10, color: 0x550000, doors: ['cellar', 'crypt'], objects: [
-                { type: 'puzzle', x: 2, z: -2, clue: 'Fill chalice: Blood, Tears, Dust', key: 'chalice', solved: false },
-                { type: 'note', text: 'Edwin: "The chalice binds us to it."', x: -2, z: 2 }
+            { id: 'cellar', x: 45, z: -15, color: 0x111111, doors: ['dining', 'ritual'], objects: [
+                { type: 'key', x: 2, z: -2, key: 'Crowbar' },
+                { type: 'note', text: 'Servant: "The cellar swallowed our hope."', x: -2, z: 2 }
             ]},
-            { id: 'storage', x: 20, z: -20, color: 0x222222, doors: ['cellar'], objects: [
-                { type: 'note', text: 'Thomas: "I hid the dagger here once."', x: 2, z: -2 }
+            { id: 'ritual', x: 60, z: -15, color: 0x550000, doors: ['cellar', 'crypt'], objects: [
+                { type: 'puzzle', x: 2, z: -2, clue: 'Fill chalice: Blood, Tears, Dust', key: 'Ritual Chalice', solved: false },
+                { type: 'note', text: 'Edwin: "The chalice sealed our doom."', x: -2, z: 2 }
             ]},
-            { id: 'boiler', x: 30, z: -20, color: 0x333333, doors: ['ritual'], objects: [
-                { type: 'note', text: 'Worker: "The heat couldn’t burn the shadows."', x: 0, z: 2 }
+            { id: 'storage', x: 45, z: -30, color: 0x222222, doors: ['cellar'], objects: [
+                { type: 'note', text: 'Thomas: "I hid my dagger here."', x: 2, z: -2 }
             ]},
-            { id: 'crypt', x: 40, z: -10, color: 0x111111, doors: ['ritual', 'vault'], objects: [
-                { type: 'puzzle', x: 2, z: -2, clue: 'Ring’s code: LILY', key: 'ring', solved: false },
-                { type: 'note', text: 'Clara: "Lily’s tomb is empty."', x: -2, z: 2 }
+            { id: 'boiler', x: 60, z: -30, color: 0x333333, doors: ['ritual'], objects: [
+                { type: 'note', text: 'Worker: "The shadows danced in the heat."', x: 0, z: 2 }
             ]},
-            { id: 'wine', x: 40, z: 0, color: 0x442200, doors: ['cellar'], objects: [
-                { type: 'note', text: 'Edwin: "Wine turned to ash in our mouths."', x: 2, z: -2 }
+            { id: 'crypt', x: 75, z: -15, color: 0x111111, doors: ['ritual', 'vault'], objects: [
+                { type: 'puzzle', x: 2, z: -2, clue: 'Ring’s code: LILY', key: 'Occult Ring', solved: false },
+                { type: 'note', text: 'Clara: "Lily’s crypt is a lie."', x: -2, z: 2 }
             ]},
-            { id: 'workshop', x: 50, z: -10, color: 0x555555, doors: ['crypt'], objects: [
-                { type: 'note', text: 'Thomas: "I forged a weapon, too late."', x: 2, z: -2, easterEgg: 'xAI graffiti on wall' }
+            { id: 'wine', x: 75, z: 0, color: 0x442200, doors: ['cellar'], objects: [
+                { type: 'note', text: 'Edwin: "Wine turned to ash."', x: 2, z: -2 }
             ]},
-            { id: 'vault', x: 40, z: -20, color: 0x111111, doors: ['crypt'], objects: [
-                { type: 'secret', x: 2, z: -2, key: 'shard', clue: 'All notes reveal the Wraith’s heart.' }
+            { id: 'workshop', x: 90, z: -15, color: 0x555555, doors: ['crypt'], objects: [
+                { type: 'note', text: 'Thomas: "I forged a blade too late."', x: 2, z: -2, easterEgg: 'xAI graffiti' }
             ]},
-            { id: 'lair', x: 50, z: -20, color: 0x000000, doors: [], objects: [
-                { type: 'note', text: 'Lily: "Banish it, please..."', x: 0, z: 2 }
+            { id: 'vault', x: 75, z: -30, color: 0x111111, doors: ['crypt'], objects: [
+                { type: 'secret', x: 2, z: -2, key: 'Wraith’s Shard', clue: '10 notes reveal the truth.' }
+            ]},
+            { id: 'lair', x: 90, z: -30, color: 0x000000, doors: [], objects: [
+                { type: 'note', text: 'Lily: "End it, please..."', x: 0, z: 2 }
             ]}
         ];
 
-        // Build rooms and objects
-        const meshes = {};
+        // Build rooms
+        const wallMat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.BackSide });
         rooms.forEach(r => {
-            const room = new THREE.Mesh(
-                new THREE.BoxGeometry(10, 10, 10),
-                new THREE.MeshBasicMaterial({ color: r.color, side: THREE.BackSide })
-            );
+            const room = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), wallMat);
             room.position.set(r.x, 0, r.z);
             scene.add(room);
             r.mesh = room;
+
+            // Add doors
+            if (r.doors[0]) {
+                const door = new THREE.Mesh(new THREE.PlaneGeometry(2, 4), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+                door.position.set(-4.9, -2, 0);
+                room.add(door);
+            }
+            if (r.doors[1]) {
+                const door = new THREE.Mesh(new THREE.PlaneGeometry(2, 4), new THREE.MeshBasicMaterial({ color: 0x0000ff }));
+                door.position.set(4.9, -2, 0);
+                room.add(door);
+            }
+            if (r.doors[2]) {
+                const door = new THREE.Mesh(new THREE.PlaneGeometry(2, 4), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+                door.position.set(0, -2, -4.9);
+                room.add(door);
+            }
+
             r.objects.forEach(obj => {
                 if (obj.type === 'key' || obj.type === 'search' || obj.type === 'puzzle' || obj.type === 'secret') {
                     const mesh = new THREE.Mesh(
@@ -141,7 +163,7 @@
                     obj.mesh = mesh;
                     scene.add(mesh);
                 } else if (obj.type === 'note') {
-                    obj.pos = new THREE.Vector3(r.x + (obj.x || 0), -4, r.z + (obj.z || 0));
+                    obj.pos = new THREE.Vector3(r.x + obj.x, -4, r.z + obj.z);
                 }
             });
         });
@@ -151,23 +173,23 @@
             new THREE.CylinderGeometry(0.5, 0.5, 3, 8),
             new THREE.MeshBasicMaterial({ color: 0x111111 })
         );
-        wraith.position.set(10, -4, -10);
+        wraith.position.set(15, -4, -15);
         scene.add(wraith);
 
         const lily = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.3, 0.3, 1.5, 8),
+            new THREE.SphereGeometry(0.3, 8, 8),
             new THREE.MeshBasicMaterial({ color: 0xaaaaaa })
         );
-        lily.position.set(-10, -4, 0);
+        lily.position.set(-100, -4, -100); // Hidden initially
         scene.add(lily);
 
-        // Exit door
-        const door = new THREE.Mesh(
+        // Exit door in foyer
+        const exitDoor = new THREE.Mesh(
             new THREE.PlaneGeometry(2, 4),
             new THREE.MeshBasicMaterial({ color: 0x550000 })
         );
-        door.position.set(0, -2, -4.9);
-        rooms[0].mesh.add(door);
+        exitDoor.position.set(0, -2, 4.9);
+        rooms[0].mesh.add(exitDoor);
 
         // Lighting
         const ambient = new THREE.AmbientLight(0x222222);
@@ -182,6 +204,7 @@
         let inventory = [];
         let notes = [];
         let wraithSpeed = 0.005;
+        let scareTimer = 0;
         let lilyTimer = 0;
 
         // Touch controls
@@ -210,10 +233,9 @@
             const x = e.changedTouches[0].clientX / window.innerWidth;
             const y = e.changedTouches[0].clientY / window.innerHeight;
             if (y > 0.8) interact();
-            else if (x < 0.25 && currentRoom.doors[0]) goToRoom(currentRoom.doors[0]);
-            else if (x > 0.25 && x < 0.5 && currentRoom.doors[1]) goToRoom(currentRoom.doors[1]);
-            else if (x > 0.5 && x < 0.75 && currentRoom.doors[2]) goToRoom(currentRoom.doors[2]);
-            else if (x > 0.75 && currentRoom.doors[3]) goToRoom(currentRoom.doors[3]);
+            else if (x < 0.33 && currentRoom.doors[0]) goToRoom(currentRoom.doors[0]); // Left (red)
+            else if (x > 0.33 && x < 0.66 && currentRoom.doors[1]) goToRoom(currentRoom.doors[1]); // Right (blue)
+            else if (x > 0.66 && currentRoom.doors[2]) goToRoom(currentRoom.doors[2]); // Forward (green)
         });
 
         function interact() {
@@ -222,18 +244,18 @@
                     if (obj.type === 'key') {
                         inventory.push(obj.key);
                         scene.remove(obj.mesh);
-                        showMessage(`You found ${obj.key}!`, false);
+                        showMessage(`You found ${obj.key}!`);
                         wraithSpeed += 0.005;
                     } else if (obj.type === 'search') {
                         if (obj.needs && !inventory.includes(obj.needs)) {
-                            showMessage(`You need a ${obj.needs}.`, false);
+                            showMessage(`You need a ${obj.needs}.`);
                         } else if (Math.random() < obj.chance) {
                             inventory.push(obj.key);
                             scene.remove(obj.mesh);
-                            showMessage(`You found ${obj.key}!`, false);
+                            showMessage(`You found ${obj.key}!`);
                             wraithSpeed += 0.005;
                         } else {
-                            showMessage('Nothing here yet...', false);
+                            showMessage('Nothing here yet...');
                         }
                     } else if (obj.type === 'puzzle' && !obj.solved) {
                         if (obj.clue.includes('FEAR')) {
@@ -243,37 +265,37 @@
                                 obj.solved = true;
                                 inventory.push(obj.key);
                                 scene.remove(obj.mesh);
-                                showMessage(`Puzzle solved! Found ${obj.key}.`, false);
+                                showMessage(`Puzzle solved! Found ${obj.key}.`);
                                 wraithSpeed += 0.005;
                             } else if (obj.state.every(s => s)) {
                                 obj.state = [false, false, false, false];
-                                showMessage('Wrong order. Resetting...', false);
+                                showMessage('Wrong order. Resetting...');
                             } else {
-                                showMessage(obj.clue, false);
+                                showMessage(obj.clue);
                             }
                         } else if (obj.clue.includes('1923') || obj.clue.includes('toys') || obj.clue.includes('chalice') || obj.clue.includes('LILY')) {
                             obj.solved = true;
                             inventory.push(obj.key);
                             scene.remove(obj.mesh);
-                            showMessage(`Puzzle solved! Found ${obj.key}.`, false);
+                            showMessage(`Puzzle solved! Found ${obj.key}.`);
                             wraithSpeed += 0.005;
                         }
                     } else if (obj.type === 'secret' && notes.length >= 10) {
                         inventory.push(obj.key);
                         scene.remove(obj.mesh);
-                        showMessage(`Secret unlocked! Found ${obj.key}.`, false);
+                        showMessage(`Secret unlocked! Found ${obj.key}.`);
                         goToRoom('lair');
                     }
                 } else if (obj.type === 'note' && camera.position.distanceTo(obj.pos) < 2) {
-                    showMessage(obj.text, false);
+                    showMessage(obj.text);
                     if (!notes.includes(obj.text)) {
                         notes.push(obj.text);
                         noteCountUI.innerText = notes.length;
                     }
-                    if (obj.easterEgg) showMessage(obj.easterEgg, false);
+                    if (obj.easterEgg) showMessage(obj.easterEgg);
                 }
             });
-            if (currentRoom.id === 'foyer' && camera.position.distanceTo(door.position) < 2 && inventory.length >= 10) {
+            if (currentRoom.id === 'foyer' && camera.position.distanceTo(exitDoor.position) < 2 && inventory.length >= 10) {
                 win();
             }
         }
@@ -283,16 +305,17 @@
             camera.position.set(newRoom.x, -2, newRoom.z);
             currentRoom = newRoom;
             pointLight.position.set(newRoom.x, 0, newRoom.z);
-            if (Math.random() < 0.4) scare();
+            roomNameUI.innerText = newRoom.id.charAt(0).toUpperCase() + newRoom.id.slice(1);
+            scareTimer = Math.max(scareTimer - 60, 0); // Reduce scare cooldown slightly
         }
 
         function scare() {
             const scares = [
-                'Blood drips from the ceiling.',
-                'A child’s cry echoes through the walls.',
-                'The Wraith whispers: "Stay..."',
-                'A chair slides across the floor.',
-                'Claw marks appear on the wall.'
+                'Blood drips from above.',
+                'A distant scream pierces the silence.',
+                'The walls creak unnaturally.',
+                'Something brushes your shoulder.',
+                'A shadow flickers in the corner.'
             ];
             showMessage(scares[Math.floor(Math.random() * scares.length)], true);
         }
@@ -300,18 +323,37 @@
         function animate() {
             requestAnimationFrame(animate);
             pointLight.intensity = 0.5 + Math.sin(Date.now() * 0.005) * 0.5;
+
+            // Wraith movement
             const targetRoom = rooms[Math.floor(Math.random() * rooms.length)];
             wraith.position.x += (targetRoom.x - wraith.position.x) * wraithSpeed;
             wraith.position.z += (targetRoom.z - wraith.position.z) * wraithSpeed;
-            if (Math.random() < 0.05) wraith.position.set(camera.position.x + 5, -4, camera.position.z + 5);
+            if (Math.random() < 0.05 && scareTimer > 600) {
+                wraith.position.set(camera.position.x + 5, -4, camera.position.z + 5);
+                showMessage('The Wraith is near!', true);
+            }
             if (camera.position.distanceTo(wraith.position) < 1) lose();
 
+            // Lily’s ghost
             lilyTimer++;
-            if (lilyTimer > 300 && Math.random() < 0.1) {
+            if (lilyTimer > 300 && Math.random() < 0.02) {
                 lily.position.set(camera.position.x + 2, -4, camera.position.z + 2);
-                showMessage('Lily’s ghost: "Help me..."', true);
+                const lilyMessages = [
+                    'Find my doll...',
+                    'It hurts...',
+                    'Mommy’s gone...',
+                    'Help me escape...'
+                ];
+                showMessage(lilyMessages[Math.floor(Math.random() * lilyMessages.length)], true);
                 lilyTimer = 0;
-            } else if (lilyTimer > 100) lily.position.set(-100, -4, -100); // Hide Lily
+            } else if (lilyTimer > 60) lily.position.set(-100, -4, -100);
+
+            // Random scares
+            scareTimer++;
+            if (scareTimer > 120 && Math.random() < 0.01) {
+                scare();
+                scareTimer = 0;
+            }
 
             renderer.render(scene, camera);
         }
@@ -320,21 +362,21 @@
             message.innerText = text;
             message.style.color = isScare ? 'red' : 'white';
             message.style.display = 'block';
-            setTimeout(() => message.style.display = 'none', 4000);
+            setTimeout(() => message.style.display = 'none', 3000);
         }
 
         function win() {
-            const ending = inventory.includes('shard') ? 'You banished the Wraith and freed the Hollows!' : 'You escaped, but the curse remains.';
+            const ending = inventory.includes('Wraith’s Shard') ? 'You banished the Wraith and freed the Hollows!' : 'You escaped, but the curse lingers.';
             showMessage(ending);
             setTimeout(() => location.reload(), 2000);
         }
 
         function lose() {
-            showMessage('The Wraith devoured your soul...');
+            showMessage('The Wraith claimed your soul...');
             setTimeout(() => location.reload(), 2000);
         }
 
-        showMessage('Uncover the Hollow Estate’s secrets. Find 10 artifacts to escape.');
+        showMessage('Explore the Hollow Estate. Find 10 artifacts to escape.');
         animate();
     </script>
 </body>
