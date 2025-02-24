@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flight Simulator Mobile 3D (PC & Drag, Camera Follows Plane)</title>
+    <title>Flight Simulator Mobile/PC 3D (Centered, Look-Around)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: Arial; background: #87CEEB; touch-action: none; }
         canvas { width: 100%; height: 100vh; display: block; }
@@ -28,7 +28,7 @@
     </div>
     <div id="startScreen">
         <h1>Flight Sim 3D</h1>
-        <p>Use WASD to move, arrows to lift, or drag to steer on mobile.</p>
+        <p>Use WASD to move, arrows to lift, drag/mouse to steer/look, or slide throttle.</p>
         <button onclick="startGame()">Start</button>
     </div>
     <script>
@@ -93,7 +93,7 @@
         }
         gl.useProgram(program);
 
-        // Plane Geometry (simple triangle)
+        // Plane Geometry (triangle with wings)
         const planeVertices = new Float32Array([
             0.0, 0.5, 0.0,  1.0, 0.0, 0.0,  // Nose (red)
            -0.5,-0.5, 0.0,  0.0, 1.0, 0.0,  // Left wing (green)
@@ -139,6 +139,9 @@
         const startScreen = document.getElementById('startScreen');
         const keys = {};
 
+        // Camera State for Look-Around
+        let cameraYaw = 0, cameraPitch = -Math.PI / 6, cameraDistance = 5;
+
         // PC Controls (WASD and Arrows)
         document.addEventListener('keydown', (e) => {
             keys[e.key.toLowerCase()] = true;
@@ -150,33 +153,100 @@
             keys[e.key.toLowerCase()] = false;
         });
 
-        // Mobile Touch Controls
-        let touchStart = { x: 0, y: 0 };
-        let isDragging = false;
+        // Mouse/Touch Controls for Camera Look-Around
+        let lastMouseX = 0, lastMouseY = 0, isMouseDown = false;
+        let lastTouchX = 0, lastTouchY = 0, isTouching = false;
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState !== 'flying') return;
+            e.preventDefault();
+            isMouseDown = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isMouseDown || gameState !== 'flying') return;
+            e.preventDefault();
+            const deltaX = e.clientX - lastMouseX;
+            const deltaY = e.clientY - lastMouseY;
+            cameraYaw += deltaX * 0.002;
+            cameraPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraPitch - deltaY * 0.002));
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            if (gameState !== 'flying') return;
+            e.preventDefault();
+            cameraDistance = Math.max(2, Math.min(10, cameraDistance + e.deltaY * 0.01));
+        });
 
         canvas.addEventListener('touchstart', (e) => {
             if (gameState !== 'flying') return;
             e.preventDefault();
-            touchStart.x = e.touches[0].clientX;
-            touchStart.y = e.touches[0].clientY;
-            isDragging = true;
+            if (e.touches.length === 1) {
+                isTouching = true;
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+            }
         });
 
         canvas.addEventListener('touchmove', (e) => {
-            if (!isDragging || gameState !== 'flying') return;
+            if (!isTouching || gameState !== 'flying') return;
             e.preventDefault();
-            const touchEnd = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            const deltaX = (touchEnd.x - touchStart.x) / canvas.width * 2;
-            const deltaY = (touchEnd.y - touchStart.y) / canvas.height * 2;
-            yaw += deltaX * 0.05;
-            roll = Math.max(-0.5, Math.min(0.5, roll + deltaY * 0.05));
-            touchStart = touchEnd;
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - lastTouchX;
+                const deltaY = touch.clientY - lastTouchY;
+                cameraYaw += deltaX * 0.002;
+                cameraPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraPitch - deltaY * 0.002));
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+            }
         });
 
         canvas.addEventListener('touchend', (e) => {
-            if (!isDragging) return;
+            if (isTouching) {
+                e.preventDefault();
+                isTouching = false;
+            }
+        });
+
+        // Mobile Touch Controls for Steering (Separate from Camera)
+        let touchStartSteer = { x: 0, y: 0 };
+        let isSteering = false;
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameState !== 'flying' && e.touches.length === 1) return;
             e.preventDefault();
-            isDragging = false;
+            if (e.touches.length === 1 && !isTouching) { // Only for steering if not camera control
+                touchStartSteer.x = e.touches[0].clientX;
+                touchStartSteer.y = e.touches[0].clientY;
+                isSteering = true;
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isSteering || gameState !== 'flying') return;
+            e.preventDefault();
+            const touchEnd = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            const deltaX = (touchEnd.x - touchStartSteer.x) / canvas.width * 2;
+            const deltaY = (touchEnd.y - touchStartSteer.y) / canvas.height * 2;
+            yaw += deltaX * 0.05;
+            roll = Math.max(-0.5, Math.min(0.5, roll + deltaY * 0.05));
+            touchStartSteer = touchEnd;
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (isSteering) {
+                e.preventDefault();
+                isSteering = false;
+            }
         });
 
         document.getElementById('throttle').addEventListener('input', (e) => {
@@ -197,7 +267,7 @@
             if (keys['a']) yaw -= 0.01;                          // Turn left
             if (keys['d']) yaw += 0.01;                          // Turn right
             if (keys['arrowup']) altitude += 0.05;               // Lift up
-            if (keys['arrowdown']) altitude = Math.max(0, altitude - 0.05); // Descend (don't go below 0)
+            if (keys['arrowdown']) altitude = Math.max(0, altitude - 0.05); // Descend (not below 0)
             if (keys['arrowleft']) roll -= 0.01;                 // Roll left
             if (keys['arrowright']) roll += 0.01;                // Roll right
         }
@@ -239,12 +309,15 @@
             ];
             gl.uniformMatrix4fv(projectionMatrix, false, pMatrix);
 
-            // Camera Matrix (Third-Person View, Following Plane)
+            // Camera Matrix (Third-Person, Following with Look-Around)
+            const cameraX = posX + Math.cos(cameraYaw) * Math.cos(cameraPitch) * cameraDistance;
+            const cameraY = altitude - Math.sin(cameraPitch) * cameraDistance;
+            const cameraZ = posZ + Math.sin(cameraYaw) * Math.cos(cameraPitch) * cameraDistance;
             const viewMatrix = [
-                Math.cos(yaw), 0, -Math.sin(yaw), 0,
-                0, 1, 0, 0,
-                Math.sin(yaw), 0, Math.cos(yaw), 0,
-                -posX - Math.cos(yaw) * 3, -altitude - 2, -posZ - Math.sin(yaw) * 3, 1
+                Math.cos(cameraYaw) * Math.cos(cameraPitch), -Math.sin(cameraPitch), Math.sin(cameraYaw) * Math.cos(cameraPitch), 0,
+                Math.sin(cameraYaw), 0, -Math.cos(cameraYaw), 0,
+                -Math.cos(cameraYaw) * Math.sin(cameraPitch), Math.cos(cameraPitch), -Math.sin(cameraYaw) * Math.sin(cameraPitch), 0,
+                -cameraX, -cameraY, -cameraZ, 1
             ];
 
             // Render Terrain
