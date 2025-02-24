@@ -86,7 +86,7 @@
         }
         gl.useProgram(program);
 
-        // Plane (simple triangle, red-green-blue for visibility)
+        // Plane geometry (simple triangle)
         const planeVertices = new Float32Array([
             0.0, 0.5, 0.0,  1.0, 0.0, 0.0,  // Red nose
            -0.5,-0.5, 0.0,  0.0, 1.0, 0.0,  // Green left wing
@@ -94,12 +94,12 @@
         ]);
         const planeIndices = new Uint16Array([0, 1, 2]);
 
-        // Terrain (flat square, green, larger for visibility)
+        // Terrain geometry (flat square)
         const terrainVertices = new Float32Array([
-           -15.0, 0.0,-15.0,  0.2, 0.5, 0.2,  // Bottom left
-            15.0, 0.0,-15.0,  0.2, 0.5, 0.2,  // Bottom right
-            15.0, 0.0, 15.0,  0.2, 0.5, 0.2,  // Top right
-           -15.0, 0.0, 15.0,  0.2, 0.5, 0.2   // Top left
+           -10.0, 0.0,-10.0,  0.2, 0.5, 0.2,  // Green terrain
+            10.0, 0.0,-10.0,  0.2, 0.5, 0.2,
+            10.0, 0.0, 10.0,  0.2, 0.5, 0.2,
+           -10.0, 0.0, 10.0,  0.2, 0.5, 0.2
         ]);
         const terrainIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
@@ -146,7 +146,7 @@
             if (!isDragging || gameState !== 'flying') return;
             e.preventDefault();
             const touchEnd = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            const deltaX = (touchEnd.x - touchStart.x) / canvas.width * 2; // Normalize to -1 to 1
+            const deltaX = (touchEnd.x - touchStart.x) / canvas.width * 2; // Normalize
             const deltaY = (touchEnd.y - touchStart.y) / canvas.height * 2;
             yaw += deltaX * 0.05; // Turn left/right
             roll = Math.max(-0.5, Math.min(0.5, roll + deltaY * 0.05)); // Climb/dive
@@ -185,7 +185,6 @@
                     if (speed > 0.1) {
                         gameState = 'crashed';
                         document.getElementById('endMsg').textContent = 'Crashed!';
-                        document.getElementById('endScore').textContent = '0';
                         document.getElementById('endScreen').style.display = 'block';
                     }
                 }
@@ -195,7 +194,7 @@
                 document.getElementById('spd').textContent = (speed * 100).toFixed(0);
             }
 
-            // Projection matrix (third-person view, wide for mobile)
+            // Projection matrix (third-person view)
             const aspect = canvas.width / canvas.height;
             const pMatrix = [
                 1.5 / aspect, 0, 0, 0,
@@ -205,42 +204,35 @@
             ];
             gl.uniformMatrix4fv(projectionMatrix, false, pMatrix);
 
-            // Terrain (green square, larger for visibility)
+            // Third-person camera (behind and above plane)
+            const viewMatrix = [
+                Math.cos(yaw), 0, -Math.sin(yaw), 0,
+                0, 1, 0, 0,
+                Math.sin(yaw), 0, Math.cos(yaw), 0,
+                -posX - Math.cos(yaw) * 3, -altitude - 2, -posZ - Math.sin(yaw) * 3, 1
+            ];
+
+            // Render terrain
             gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBuffer);
             gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
             gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, terrainIBuffer);
-            const terrainMatrix = [
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                0, 0, 0, 1
-            ];
-            gl.uniformMatrix4fv(modelViewMatrix, false, terrainMatrix);
+            gl.uniformMatrix4fv(modelViewMatrix, false, viewMatrix);
             gl.drawElements(gl.TRIANGLES, terrainIndices.length, gl.UNSIGNED_SHORT, 0);
 
-            // Plane (red-green-blue triangle, third-person behind)
+            // Render plane
             gl.bindBuffer(gl.ARRAY_BUFFER, planeVBuffer);
             gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
             gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, planeIBuffer);
             const planeMatrix = [
                 Math.cos(yaw), Math.sin(roll) * 0.3, Math.sin(yaw), 0,
-                -Math.sin(roll) * 0.3, 1, Math.sin(pitch) * 0.3, 0,
-                -Math.sin(yaw), -Math.sin(pitch) * 0.3, Math.cos(yaw), 0,
+                -Math.sin(roll) * 0.3, 1, 0, 0,
+                -Math.sin(yaw), 0, Math.cos(yaw), 0,
                 posX, altitude, posZ, 1
             ];
             gl.uniformMatrix4fv(modelViewMatrix, false, planeMatrix);
             gl.drawElements(gl.TRIANGLES, planeIndices.length, gl.UNSIGNED_SHORT, 0);
-
-            // Third-person camera (behind and above plane)
-            const viewMatrix = [
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                -posX - Math.cos(yaw) * 3, -altitude - 2, -posZ - Math.sin(yaw) * 3, 1
-            ];
-            gl.uniformMatrix4fv(modelViewMatrix, false, viewMatrix);
 
             requestAnimationFrame(render);
         }
