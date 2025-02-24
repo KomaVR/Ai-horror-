@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flight Simulator Mobile 3D (Third-Person, Drag)</title>
+    <title>Flight Simulator Mobile 3D (Debug, Third-Person, Drag)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: Arial; background: #87CEEB; touch-action: none; }
         canvas { width: 100%; height: 100vh; display: block; }
@@ -86,7 +86,7 @@
         }
         gl.useProgram(program);
 
-        // Plane (simple triangle, visible in 3rd person)
+        // Plane (simple triangle, red-green-blue for visibility)
         const planeVertices = new Float32Array([
             0.0, 0.5, 0.0,  1.0, 0.0, 0.0,  // Red nose
            -0.5,-0.5, 0.0,  0.0, 1.0, 0.0,  // Green left wing
@@ -94,12 +94,12 @@
         ]);
         const planeIndices = new Uint16Array([0, 1, 2]);
 
-        // Terrain (flat square, green)
+        // Terrain (flat square, green, larger for visibility)
         const terrainVertices = new Float32Array([
-           -10.0, 0.0,-10.0,  0.2, 0.5, 0.2,  // Bottom left
-            10.0, 0.0,-10.0,  0.2, 0.5, 0.2,  // Bottom right
-            10.0, 0.0, 10.0,  0.2, 0.5, 0.2,  // Top right
-           -10.0, 0.0, 10.0,  0.2, 0.5, 0.2   // Top left
+           -15.0, 0.0,-15.0,  0.2, 0.5, 0.2,  // Bottom left
+            15.0, 0.0,-15.0,  0.2, 0.5, 0.2,  // Bottom right
+            15.0, 0.0, 15.0,  0.2, 0.5, 0.2,  // Top right
+           -15.0, 0.0, 15.0,  0.2, 0.5, 0.2   // Top left
         ]);
         const terrainIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
