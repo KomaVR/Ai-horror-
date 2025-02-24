@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flight Simulator Mobile 3D (Drag Controls)</title>
+    <title>Flight Simulator Mobile 3D (Third-Person, Drag)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: Arial; background: #87CEEB; touch-action: none; }
         canvas { width: 100%; height: 100vh; display: block; }
@@ -28,7 +28,7 @@
     </div>
     <div id="startScreen">
         <h1>Flight Sim 3D</h1>
-        <p>Drag to steer, slide throttle to fly!</p>
+        <p>Drag to steer, slide throttle to fly in 3rd person!</p>
         <button onclick="startGame()">Start</button>
     </div>
     <script>
@@ -86,20 +86,20 @@
         }
         gl.useProgram(program);
 
-        // Plane (simple triangle, visible by default)
+        // Plane (simple triangle, visible in 3rd person)
         const planeVertices = new Float32Array([
-            0.0, 0.5, 0.0,  1.0, 0.0, 0.0,  // Red top
-           -0.5,-0.5, 0.0,  0.0, 1.0, 0.0,  // Green bottom left
-            0.5,-0.5, 0.0,  0.0, 0.0, 1.0   // Blue bottom right
+            0.0, 0.5, 0.0,  1.0, 0.0, 0.0,  // Red nose
+           -0.5,-0.5, 0.0,  0.0, 1.0, 0.0,  // Green left wing
+            0.5,-0.5, 0.0,  0.0, 0.0, 1.0   // Blue right wing
         ]);
         const planeIndices = new Uint16Array([0, 1, 2]);
 
         // Terrain (flat square, green)
         const terrainVertices = new Float32Array([
-           -5.0, 0.0,-5.0,  0.2, 0.5, 0.2,  // Bottom left
-            5.0, 0.0,-5.0,  0.2, 0.5, 0.2,  // Bottom right
-            5.0, 0.0, 5.0,  0.2, 0.5, 0.2,  // Top right
-           -5.0, 0.0, 5.0,  0.2, 0.5, 0.2   // Top left
+           -10.0, 0.0,-10.0,  0.2, 0.5, 0.2,  // Bottom left
+            10.0, 0.0,-10.0,  0.2, 0.5, 0.2,  // Bottom right
+            10.0, 0.0, 10.0,  0.2, 0.5, 0.2,  // Top right
+           -10.0, 0.0, 10.0,  0.2, 0.5, 0.2   // Top left
         ]);
         const terrainIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
@@ -125,12 +125,12 @@
         const modelViewMatrix = gl.getUniformLocation(program, 'uModelViewMatrix');
         const projectionMatrix = gl.getUniformLocation(program, 'uProjectionMatrix');
 
-        // Game state
+        // Game state (third-person view)
         let pitch = 0, roll = 0, yaw = 0, throttle = 0, altitude = 1, speed = 0, posX = 0, posZ = 0;
         let gameState = 'start';
         const startScreen = document.getElementById('startScreen');
 
-        // Drag controls for mobile
+        // Drag controls for mobile (third-person steering)
         let touchStart = { x: 0, y: 0 };
         let isDragging = false;
 
@@ -148,8 +148,8 @@
             const touchEnd = { x: e.touches[0].clientX, y: e.touches[0].clientY };
             const deltaX = (touchEnd.x - touchStart.x) / canvas.width * 2; // Normalize to -1 to 1
             const deltaY = (touchEnd.y - touchStart.y) / canvas.height * 2;
-            pitch = Math.max(-0.5, Math.min(0.5, pitch - deltaX)); // Turn (yaw)
-            roll = Math.max(-0.5, Math.min(0.5, roll + deltaY)); // Climb/dive
+            yaw += deltaX * 0.05; // Turn left/right
+            roll = Math.max(-0.5, Math.min(0.5, roll + deltaY * 0.05)); // Climb/dive
             touchStart = touchEnd;
         });
 
@@ -173,13 +173,12 @@
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             if (gameState === 'flying') {
-                // Physics
+                // Physics (simplified for mobile)
                 speed = Math.max(0, Math.min(0.3, speed + (throttle * 0.005 - speed * 0.01)));
                 const lift = 1.2 * speed * speed * Math.sin(roll);
                 altitude += lift - 0.01;
                 posX += Math.cos(yaw) * speed;
                 posZ += Math.sin(yaw) * speed;
-                yaw += pitch * 0.03;
 
                 if (altitude <= 0) {
                     altitude = 0;
@@ -196,17 +195,17 @@
                 document.getElementById('spd').textContent = (speed * 100).toFixed(0);
             }
 
-            // Projection matrix (wide view for mobile)
+            // Projection matrix (third-person view, wide for mobile)
             const aspect = canvas.width / canvas.height;
             const pMatrix = [
                 1.5 / aspect, 0, 0, 0,
                 0, 1.5, 0, 0,
                 0, 0, -1, -1,
-                0, 0, -2, 1  // Very close camera
+                0, 0, -5, 1  // Camera behind plane
             ];
             gl.uniformMatrix4fv(projectionMatrix, false, pMatrix);
 
-            // Terrain (flat, green square)
+            // Terrain (green square, larger for visibility)
             gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBuffer);
             gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
             gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
@@ -220,19 +219,28 @@
             gl.uniformMatrix4fv(modelViewMatrix, false, terrainMatrix);
             gl.drawElements(gl.TRIANGLES, terrainIndices.length, gl.UNSIGNED_SHORT, 0);
 
-            // Plane (red-green-blue triangle, moving)
+            // Plane (red-green-blue triangle, third-person behind)
             gl.bindBuffer(gl.ARRAY_BUFFER, planeVBuffer);
             gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
             gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, planeIBuffer);
             const planeMatrix = [
-                Math.cos(yaw), 0, Math.sin(yaw), 0,
-                0, 1, 0, 0,
-                -Math.sin(yaw), 0, Math.cos(yaw), 0,
+                Math.cos(yaw), Math.sin(roll) * 0.3, Math.sin(yaw), 0,
+                -Math.sin(roll) * 0.3, 1, Math.sin(pitch) * 0.3, 0,
+                -Math.sin(yaw), -Math.sin(pitch) * 0.3, Math.cos(yaw), 0,
                 posX, altitude, posZ, 1
             ];
             gl.uniformMatrix4fv(modelViewMatrix, false, planeMatrix);
             gl.drawElements(gl.TRIANGLES, planeIndices.length, gl.UNSIGNED_SHORT, 0);
+
+            // Third-person camera (behind and above plane)
+            const viewMatrix = [
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                -posX - Math.cos(yaw) * 3, -altitude - 2, -posZ - Math.sin(yaw) * 3, 1
+            ];
+            gl.uniformMatrix4fv(modelViewMatrix, false, viewMatrix);
 
             requestAnimationFrame(render);
         }
