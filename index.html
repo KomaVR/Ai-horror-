@@ -5,63 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Flight Simulator Mobile 3D</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: Arial; background: linear-gradient(#87CEEB, #FFFFFF); touch-action: none; }
+        body { margin: 0; overflow: hidden; font-family: Arial; background: #87CEEB; touch-action: none; }
         canvas { width: 100%; height: 100vh; display: block; }
-        #hud { position: absolute; top: 5px; left: 5px; color: white; text-shadow: 0 0 3px black; font-size: 12px; }
+        #hud { position: absolute; top: 5px; left: 5px; color: white; text-shadow: 0 0 3px black; font-size: 14px; }
         #controls { position: absolute; bottom: 5px; left: 5px; z-index: 10; display: flex; flex-direction: column; }
-        #startScreen, #endScreen { 
+        #startScreen { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.9); color: white; text-align: center; padding-top: 20%; 
+            background: rgba(0,0,0,0.8); color: white; text-align: center; padding-top: 20%; 
             transition: opacity 1s; 
         }
-        #endScreen { display: none; }
-        #cockpit { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        button { padding: 8px 16px; margin: 5px; background: #1a1a1a; color: white; border: none; font-size: 12px; }
+        button { padding: 8px 16px; margin: 5px; background: #333; color: white; border: none; font-size: 12px; }
         input[type="range"] { width: 100px; margin: 5px 0; }
-        #narrator { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 8px; font-size: 12px; display: none; }
     </style>
 </head>
 <body>
     <canvas id="glCanvas"></canvas>
     <div id="hud">
         Alt: <span id="alt">0</span>m | Spd: <span id="spd">0</span>m/s | Fuel: <span id="fuel">100</span>%
-        <svg width="40" height="40" style="position: absolute; top: 5px; right: 5px;">
-            <rect x="5" y="5" width="30" height="30" fill="none" stroke="white" stroke-width="1"/>
-            <line id="pitchLine" x1="20" y1="10" x2="20" y2="30" stroke="lime" stroke-width="2"/>
-            <line id="rollLine" x1="10" y1="20" x2="30" y2="20" stroke="lime" stroke-width="2"/>
-        </svg>
     </div>
     <div id="controls">
         <input type="range" id="throttle" min="0" max="100" value="0">
-        <input type="range" id="flaps" min="0" max="3" value="0">
-        <button id="viewToggle" onclick="toggleView()">Cockpit</button>
     </div>
     <div id="startScreen">
         <h1>Flight Sim 3D</h1>
-        <p>Tilt to steer, slide to fly!</p>
+        <p>Tilt to steer, slide throttle to fly!</p>
         <button onclick="startGame()">Start</button>
     </div>
-    <div id="endScreen">
-        <h1><span id="endMsg"></span></h1>
-        <p>Score: <span id="endScore"></span></p>
-        <button onclick="resetGame()">Restart</button>
-    </div>
-    <div id="cockpit">
-        <svg width="100%" height="100%" viewBox="0 0 100 100">
-            <rect x="0" y="0" width="100" height="30" fill="gray" opacity="0.7"/>
-            <rect x="0" y="70" width="100" height="30" fill="gray" opacity="0.7"/>
-            <path d="M45 30 L50 35 L55 30 M45 70 L50 65 L55 70" stroke="lime" stroke-width="3"/>
-        </svg>
-    </div>
-    <div id="narrator"></div>
     <script>
         const canvas = document.getElementById('glCanvas');
-        const gl = canvas.getContext('webgl', { antialias: true });
-        if (!gl) { alert('WebGL not supported! Try a modern mobile browser.'); throw new Error('WebGL failed'); }
+        const gl = canvas.getContext('webgl');
+        if (!gl) { alert('WebGL not supported! Use a modern mobile browser.'); throw new Error('WebGL failed'); }
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        // Shaders
         const vsSource = `
             attribute vec3 aPosition;
             attribute vec3 aColor;
@@ -84,36 +62,36 @@
         const vertexShader = gl.createShader(gl.VERTEX_SHADER);
         gl.shaderSource(vertexShader, vsSource);
         gl.compileShader(vertexShader);
+        if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(vertexShader));
         const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
         gl.shaderSource(fragmentShader, fsSource);
         gl.compileShader(fragmentShader);
+        if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(fragmentShader));
         const program = gl.createProgram();
         gl.attachShader(program, vertexShader);
         gl.attachShader(program, fragmentShader);
         gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(program));
         gl.useProgram(program);
 
-        // Simplified plane
+        // Plane geometry
         const planeVertices = new Float32Array([
-            0.0, 0.5, 0.0,  1, 1, 1,
-           -0.8, 0.1, 0.5,  0.8, 0.8, 0.8,
-            0.8, 0.1, 0.5,  0.8, 0.8, 0.8,
-           -0.3, 0.1,-0.6,  0.7, 0.7, 0.7,
-            0.3, 0.1,-0.6,  0.7, 0.7, 0.7,
-            0.0,-0.1,-0.7,  0.7, 0.7, 0.7
+            0.0, 0.3, 0.0,  1.0, 1.0, 1.0,  // Nose (white)
+           -0.5, 0.0, 0.4,  0.8, 0.8, 0.8,  // Left wing
+            0.5, 0.0, 0.4,  0.8, 0.8, 0.8,  // Right wing
+           -0.2, 0.0,-0.5,  0.7, 0.7, 0.7,  // Tail left
+            0.2, 0.0,-0.5,  0.7, 0.7, 0.7   // Tail right
         ]);
-        const planeIndices = new Uint16Array([0, 1, 2, 0, 3, 4, 0, 5, 3]);
+        const planeIndices = new Uint16Array([0, 1, 2, 0, 3, 4]);
 
-        // Reduced terrain
+        // Terrain geometry
         const terrainVertices = [];
         const terrainIndices = [];
-        const gridSize = 40; // Smaller grid for mobile
-        for (let x = -10; x < 10; x += 0.5) {
-            for (let z = -10; z < 10; z += 0.5) {
-                let y = Math.sin(x * 0.2) * Math.cos(z * 0.2) * 0.8;
-                let color = [0.2, 0.5, 0.2];
-                if (Math.abs(x - 5) < 1 && z > 8 && z < 10) { y = 0; color = [0.7, 0.7, 0.7]; }
-                terrainVertices.push(x, y, z, ...color);
+        const gridSize = 20; // Minimal for mobile
+        for (let x = -5; x < 5; x += 0.5) {
+            for (let z = -5; z < 5; z += 0.5) {
+                const y = Math.sin(x) * Math.cos(z) * 0.3;
+                terrainVertices.push(x, y, z, 0.2, 0.5, 0.2); // Green
             }
         }
         for (let i = 0; i < gridSize - 1; i++) {
@@ -124,28 +102,6 @@
                 const d = c + 1;
                 terrainIndices.push(a, b, d, a, d, c);
             }
-        }
-
-        // Minimal clouds
-        const cloudVertices = [];
-        const cloudIndices = [];
-        for (let i = 0; i < 5; i++) {
-            const x = (Math.random() - 0.5) * 15;
-            const y = 3 + Math.random() * 3;
-            const z = (Math.random() - 0.5) * 15;
-            const s = 0.8;
-            cloudVertices.push(
-                x-s, y-s, z-s, 0.9, 0.9, 0.9,
-                x+s, y-s, z-s, 0.9, 0.9, 0.9,
-                x+s, y+s, z-s, 0.9, 0.9, 0.9,
-                x-s, y+s, z-s, 0.9, 0.9, 0.9,
-                x-s, y-s, z+s, 0.9, 0.9, 0.9,
-                x+s, y-s, z+s, 0.9, 0.9, 0.9,
-                x+s, y+s, z+s, 0.9, 0.9, 0.9,
-                x-s, y+s, z+s, 0.9, 0.9, 0.9
-            );
-            const o = i * 8;
-            cloudIndices.push(o, o+1, o+2, o, o+2, o+3, o+4, o+5, o+6, o+4, o+6, o+7);
         }
 
         const planeVBuffer = gl.createBuffer();
@@ -162,13 +118,6 @@
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, terrainIBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(terrainIndices), gl.STATIC_DRAW);
 
-        const cloudVBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, cloudVBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cloudVertices), gl.STATIC_DRAW);
-        const cloudIBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cloudIBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cloudIndices), gl.STATIC_DRAW);
-
         const aPosition = gl.getAttribLocation(program, 'aPosition');
         const aColor = gl.getAttribLocation(program, 'aColor');
         gl.enableVertexAttribArray(aPosition);
@@ -178,106 +127,67 @@
         const projectionMatrix = gl.getUniformLocation(program, 'uProjectionMatrix');
 
         // Game state
-        let pitch = 0, roll = 0, yaw = 0, throttle = 0, flaps = 0, altitude = 0, speed = 0, posX = 5, posZ = 10;
+        let pitch = 0, roll = 0, yaw = 0, throttle = 0, altitude = 2, speed = 0, posX = 0, posZ = 0;
         let fuel = 100, score = 0, gameState = 'start';
         const startScreen = document.getElementById('startScreen');
-        const endScreen = document.getElementById('endScreen');
-        const cockpit = document.getElementById('cockpit');
-        const narrator = document.getElementById('narrator');
 
-        // Audio (simplified for mobile)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const engine = audioCtx.createOscillator();
-        engine.type = 'sawtooth';
-        engine.frequency.setValueAtTime(100, audioCtx.currentTime);
-        const engineGain = audioCtx.createGain();
-        engineGain.gain.setValueAtTime(0.03, audioCtx.currentTime);
-        engine.connect(engineGain);
-        engineGain.connect(audioCtx.destination);
-
+        // Mobile controls
         window.addEventListener('deviceorientation', (e) => {
             if (gameState !== 'flying') return;
-            roll = Math.max(-0.5, Math.min(0.5, (e.beta || 0) * 0.02));
-            pitch = Math.max(-0.5, Math.min(0.5, (e.gamma || 0) * 0.02));
-            document.getElementById('pitchLine').setAttribute('y2', 20 + roll * 15);
-            document.getElementById('rollLine').setAttribute('x1', 20 - pitch * 15);
-            document.getElementById('rollLine').setAttribute('x2', 20 + pitch * 15);
-        });
-        document.getElementById('throttle').addEventListener('input', (e) => {
-            throttle = e.target.value / 100;
-            engine.frequency.setValueAtTime(80 + throttle * 200, audioCtx.currentTime);
-        });
-        document.getElementById('flaps').addEventListener('input', (e) => {
-            flaps = e.target.value;
+            roll = Math.max(-0.5, Math.min(0.5, (e.beta || 0) * 0.02)); // Pitch control
+            pitch = Math.max(-0.5, Math.min(0.5, (e.gamma || 0) * 0.02)); // Roll control
         });
 
-        function toggleView() {
-            cockpitView = !cockpitView;
-            cockpit.style.display = cockpitView ? 'block' : 'none';
-        }
+        document.getElementById('throttle').addEventListener('input', (e) => {
+            throttle = e.target.value / 100;
+        });
 
         function startGame() {
             gameState = 'flying';
             startScreen.style.opacity = '0';
             setTimeout(() => startScreen.style.display = 'none', 1000);
-            engine.start();
-            narrate('Tilt to steer, throttle up!', 3);
         }
 
         function resetGame() {
             pitch = roll = yaw = 0;
             throttle = 0;
-            flaps = 0;
-            altitude = 0;
+            altitude = 2;
             speed = 0;
-            posX = 5;
-            posZ = 10;
+            posX = 0;
+            posZ = 0;
             fuel = 100;
             score = 0;
             gameState = 'flying';
-            endScreen.style.display = 'none';
-            engine.stop();
-            engine.disconnect();
-            startGame();
-        }
-
-        function narrate(text, duration) {
-            narrator.textContent = text;
-            narrator.style.display = 'block';
-            setTimeout(() => narrator.style.display = 'none', duration * 1000);
+            document.getElementById('endScreen').style.display = 'none';
         }
 
         function render() {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             if (gameState === 'flying') {
-                // Simplified physics for mobile
-                const aoa = roll + flaps * 0.1;
-                speed = Math.max(0.02, Math.min(0.3, speed + (throttle * 0.005 - speed * 0.015)));
-                const lift = 1.5 * speed * speed * Math.sin(aoa) * (altitude < 0.5 ? 1.2 : 1);
-                const drag = 0.05 * speed * speed;
-                altitude += lift - 0.01 - drag * Math.cos(aoa);
+                // Physics
+                speed = Math.max(0.02, Math.min(0.3, speed + (throttle * 0.005 - speed * 0.01)));
+                const lift = 1.2 * speed * speed * Math.sin(roll);
+                altitude += lift - 0.015;
                 posX += Math.cos(yaw) * speed;
                 posZ += Math.sin(yaw) * speed;
                 yaw += pitch * 0.03;
-                fuel -= throttle * 0.02;
-                score += speed * 0.5;
+                fuel -= throttle * 0.015;
 
-                const terrainHeight = Math.sin(posX * 0.2) * Math.cos(posZ * 0.2) * 0.8;
-                const isOverRunway = Math.abs(posX - 5) < 1 && posZ > 8 && posZ < 10;
-                if (altitude <= terrainHeight || fuel <= 0) {
-                    if (isOverRunway && speed < 0.06 && altitude < 0.2 && Math.abs(roll) < 0.1) {
-                        gameState = 'landed';
-                        document.getElementById('endMsg').textContent = 'Landed!';
-                        score += 200;
-                    } else {
-                        gameState = 'crashed';
-                        document.getElementById('endMsg').textContent = fuel <= 0 ? 'No Fuel!' : 'Crashed!';
-                    }
+                const terrainHeight = Math.sin(posX) * Math.cos(posZ) * 0.3;
+                if (altitude <= terrainHeight) {
+                    gameState = 'crashed';
+                    document.getElementById('endMsg').textContent = 'Crashed!';
                     document.getElementById('endScore').textContent = Math.floor(score);
-                    endScreen.style.display = 'block';
-                    engineGain.gain.setValueAtTime(0, audioCtx.currentTime + 0.5);
+                    document.getElementById('endScreen').style.display = 'block';
+                } else if (fuel <= 0) {
+                    gameState = 'crashed';
+                    document.getElementById('endMsg').textContent = 'Out of Fuel!';
+                    document.getElementById('endScore').textContent = Math.floor(score);
+                    document.getElementById('endScreen').style.display = 'block';
                 }
+
+                score += speed * 0.5;
 
                 // HUD
                 document.getElementById('alt').textContent = altitude.toFixed(1);
@@ -285,12 +195,13 @@
                 document.getElementById('fuel').textContent = Math.max(0, fuel.toFixed(0));
             }
 
+            // Projection matrix
             const aspect = canvas.width / canvas.height;
             const pMatrix = [
-                2 / aspect, 0, 0, 0,
-                0, 2, 0, 0,
+                1.5 / aspect, 0, 0, 0,
+                0, 1.5, 0, 0,
                 0, 0, -1, -1,
-                0, 0, cockpitView ? -1 : -10, 1
+                0, 0, -5, 1
             ];
             gl.uniformMatrix4fv(projectionMatrix, false, pMatrix);
 
@@ -303,40 +214,21 @@
                 1, 0, 0, 0,
                 0, 1, 0, 0,
                 0, 0, 1, 0,
-                -posX, -terrainHeight, -posZ, 1
+                -posX, 0, -posZ, 1
             ];
             gl.uniformMatrix4fv(modelViewMatrix, false, terrainMatrix);
             gl.drawElements(gl.TRIANGLES, terrainIndices.length, gl.UNSIGNED_SHORT, 0);
-
-            // Clouds
-            gl.bindBuffer(gl.ARRAY_BUFFER, cloudVBuffer);
-            gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
-            gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cloudIBuffer);
-            const cloudMatrix = [
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                -posX, 0, -posZ, 1
-            ];
-            gl.uniformMatrix4fv(modelViewMatrix, false, cloudMatrix);
-            gl.drawElements(gl.TRIANGLES, cloudIndices.length, gl.UNSIGNED_SHORT, 0);
 
             // Plane
             gl.bindBuffer(gl.ARRAY_BUFFER, planeVBuffer);
             gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
             gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, planeIBuffer);
-            const planeMatrix = cockpitView ? [
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                0, 0, 0, 1
-            ] : [
+            const planeMatrix = [
                 Math.cos(yaw), Math.sin(roll) * 0.3, Math.sin(yaw), 0,
                 -Math.sin(roll) * 0.3, 1, Math.sin(pitch) * 0.3, 0,
                 -Math.sin(yaw), -Math.sin(pitch) * 0.3, Math.cos(yaw), 0,
-                0, altitude, -5, 1
+                posX, altitude, posZ, 1
             ];
             gl.uniformMatrix4fv(modelViewMatrix, false, planeMatrix);
             gl.drawElements(gl.TRIANGLES, planeIndices.length, gl.UNSIGNED_SHORT, 0);
@@ -344,15 +236,9 @@
             requestAnimationFrame(render);
         }
 
-        gl.clearColor(0.53, 0.81, 0.92, 1.0);
+        gl.clearColor(0.53, 0.81, 0.92, 1.0); // Sky blue
         gl.enable(gl.DEPTH_TEST);
         render();
-
-        function narrate(text, duration) {
-            narrator.textContent = text;
-            narrator.style.display = 'block';
-            setTimeout(() => narrator.style.display = 'none', duration * 1000);
-        }
     </script>
 </body>
 </html>
