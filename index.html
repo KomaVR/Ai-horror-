@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flight Simulator Mobile 3D (Debug)</title>
+    <title>Flight Simulator Mobile 3D (Drag Controls)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: Arial; background: #87CEEB; touch-action: none; }
         canvas { width: 100%; height: 100vh; display: block; }
@@ -28,7 +28,7 @@
     </div>
     <div id="startScreen">
         <h1>Flight Sim 3D</h1>
-        <p>Tilt to steer, slide throttle to fly!</p>
+        <p>Drag to steer, slide throttle to fly!</p>
         <button onclick="startGame()">Start</button>
     </div>
     <script>
@@ -86,7 +86,7 @@
         }
         gl.useProgram(program);
 
-        // Plane (single triangle, ensuring visibility)
+        // Plane (simple triangle, visible by default)
         const planeVertices = new Float32Array([
             0.0, 0.5, 0.0,  1.0, 0.0, 0.0,  // Red top
            -0.5,-0.5, 0.0,  0.0, 1.0, 0.0,  // Green bottom left
@@ -130,11 +130,33 @@
         let gameState = 'start';
         const startScreen = document.getElementById('startScreen');
 
-        // Mobile controls
-        window.addEventListener('deviceorientation', (e) => {
+        // Drag controls for mobile
+        let touchStart = { x: 0, y: 0 };
+        let isDragging = false;
+
+        canvas.addEventListener('touchstart', (e) => {
             if (gameState !== 'flying') return;
-            roll = Math.max(-0.5, Math.min(0.5, (e.beta || 0) * 0.02)); // Pitch control
-            pitch = Math.max(-0.5, Math.min(0.5, (e.gamma || 0) * 0.02)); // Roll control
+            e.preventDefault();
+            touchStart.x = e.touches[0].clientX;
+            touchStart.y = e.touches[0].clientY;
+            isDragging = true;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isDragging || gameState !== 'flying') return;
+            e.preventDefault();
+            const touchEnd = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            const deltaX = (touchEnd.x - touchStart.x) / canvas.width * 2; // Normalize to -1 to 1
+            const deltaY = (touchEnd.y - touchStart.y) / canvas.height * 2;
+            pitch = Math.max(-0.5, Math.min(0.5, pitch - deltaX)); // Turn (yaw)
+            roll = Math.max(-0.5, Math.min(0.5, roll + deltaY)); // Climb/dive
+            touchStart = touchEnd;
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            isDragging = false;
         });
 
         document.getElementById('throttle').addEventListener('input', (e) => {
@@ -180,7 +202,7 @@
                 1.5 / aspect, 0, 0, 0,
                 0, 1.5, 0, 0,
                 0, 0, -1, -1,
-                0, 0, -2, 1  // Very close camera to ensure visibility
+                0, 0, -2, 1  // Very close camera
             ];
             gl.uniformMatrix4fv(projectionMatrix, false, pMatrix);
 
