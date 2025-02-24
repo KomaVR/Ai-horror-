@@ -2,73 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Flight Simulator Zenith</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flight Simulator Mobile 3D</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: Arial; transition: background 4s; }
+        body { margin: 0; overflow: hidden; font-family: Arial; background: linear-gradient(#87CEEB, #FFFFFF); touch-action: none; }
         canvas { width: 100%; height: 100vh; display: block; }
-        #hud { position: absolute; top: 10px; left: 10px; color: white; text-shadow: 0 0 5px black; font-size: 18px; }
-        #controls { position: absolute; bottom: 10px; left: 10px; z-index: 10; }
+        #hud { position: absolute; top: 5px; left: 5px; color: white; text-shadow: 0 0 3px black; font-size: 12px; }
+        #controls { position: absolute; bottom: 5px; left: 5px; z-index: 10; display: flex; flex-direction: column; }
         #startScreen, #endScreen { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.95); color: white; text-align: center; padding-top: 5%; 
-            transition: opacity 1.5s; 
+            background: rgba(0,0,0,0.9); color: white; text-align: center; padding-top: 20%; 
+            transition: opacity 1s; 
         }
         #endScreen { display: none; }
         #cockpit { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        button { padding: 15px 30px; margin: 10px; background: #1a1a1a; color: white; border: none; cursor: pointer; transition: transform 0.3s, background 0.3s; }
-        button:hover { transform: scale(1.1); background: #333; }
-        #narrator { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 15px; border-radius: 5px; display: none; }
-        #rain { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        button { padding: 8px 16px; margin: 5px; background: #1a1a1a; color: white; border: none; font-size: 12px; }
+        input[type="range"] { width: 100px; margin: 5px 0; }
+        #narrator { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 8px; font-size: 12px; display: none; }
     </style>
 </head>
 <body>
     <canvas id="glCanvas"></canvas>
     <div id="hud">
-        Alt: <span id="alt">0</span>m | Spd: <span id="spd">0</span>m/s | Fuel: <span id="fuel">100</span>% 
-        | Dmg: <span id="dmg">0</span>% | Score: <span id="score">0</span> | Skill: <span id="skill">Novice</span>
-        <svg width="80" height="80" style="position: absolute; top: 10px; right: 10px;">
-            <rect x="5" y="5" width="70" height="70" fill="none" stroke="white" stroke-width="2"/>
-            <line id="pitchLine" x1="40" y1="20" x2="40" y2="60" stroke="lime" stroke-width="3"/>
-            <line id="rollLine" x1="20" y1="40" x2="60" y2="40" stroke="lime" stroke-width="3"/>
-            <text x="40" y="70" fill="white" font-size="10" text-anchor="middle">Attitude</text>
+        Alt: <span id="alt">0</span>m | Spd: <span id="spd">0</span>m/s | Fuel: <span id="fuel">100</span>%
+        <svg width="40" height="40" style="position: absolute; top: 5px; right: 5px;">
+            <rect x="5" y="5" width="30" height="30" fill="none" stroke="white" stroke-width="1"/>
+            <line id="pitchLine" x1="20" y1="10" x2="20" y2="30" stroke="lime" stroke-width="2"/>
+            <line id="rollLine" x1="10" y1="20" x2="30" y2="20" stroke="lime" stroke-width="2"/>
         </svg>
     </div>
     <div id="controls">
-        <input type="range" id="throttle" min="0" max="100" value="0" style="width: 140px;" title="Throttle">
-        <input type="range" id="flaps" min="0" max="3" value="0" style="width: 70px;" title="Flaps">
-        <button id="viewToggle" onclick="toggleView()">Cockpit View</button>
+        <input type="range" id="throttle" min="0" max="100" value="0">
+        <input type="range" id="flaps" min="0" max="3" value="0">
+        <button id="viewToggle" onclick="toggleView()">Cockpit</button>
     </div>
     <div id="startScreen">
-        <h1>Flight Simulator Zenith</h1>
-        <p>Conquer the skies in an infinite world!</p>
-        <button onclick="startGame('tutorial')">Tutorial</button>
-        <button onclick="startGame('explore')">Explore</button>
-        <button onclick="startGame('challenge')">Challenge</button>
+        <h1>Flight Sim 3D</h1>
+        <p>Tilt to steer, slide to fly!</p>
+        <button onclick="startGame()">Start</button>
     </div>
     <div id="endScreen">
         <h1><span id="endMsg"></span></h1>
-        <p>Score: <span id="endScore"></span> | High Score: <span id="highScore">0</span></p>
-        <p>Leaderboard: <span id="leaderboard"></span></p>
+        <p>Score: <span id="endScore"></span></p>
         <button onclick="resetGame()">Restart</button>
     </div>
     <div id="cockpit">
         <svg width="100%" height="100%" viewBox="0 0 100 100">
-            <rect x="0" y="0" width="100" height="45" fill="gray" opacity="0.85"/>
-            <rect x="0" y="55" width="100" height="45" fill="gray" opacity="0.85"/>
-            <path d="M45 45 L50 50 L55 45 M45 55 L50 50 L55 55" stroke="lime" stroke-width="4"/>
-            <circle cx="50" cy="50" r="12" fill="none" stroke="lime" stroke-width="3"/>
-            <line id="altNeedle" x1="50" y1="50" x2="50" y2="38" stroke="red" stroke-width="2" transform="rotate(0 50 50)"/>
-            <line id="spdNeedle" x1="50" y1="50" x2="50" y2="62" stroke="yellow" stroke-width="2" transform="rotate(0 50 50)"/>
-            <text x="50" y="95" fill="white" font-size="8" text-anchor="middle">Alt | Spd</text>
+            <rect x="0" y="0" width="100" height="30" fill="gray" opacity="0.7"/>
+            <rect x="0" y="70" width="100" height="30" fill="gray" opacity="0.7"/>
+            <path d="M45 30 L50 35 L55 30 M45 70 L50 65 L55 70" stroke="lime" stroke-width="3"/>
         </svg>
     </div>
-    <canvas id="rain" width="100" height="100"></canvas>
     <div id="narrator"></div>
     <script>
         const canvas = document.getElementById('glCanvas');
-        const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
-        if (!gl) { alert('WebGL not supported!'); throw new Error('WebGL failed'); }
+        const gl = canvas.getContext('webgl', { antialias: true });
+        if (!gl) { alert('WebGL not supported! Try a modern mobile browser.'); throw new Error('WebGL failed'); }
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -104,37 +93,26 @@
         gl.linkProgram(program);
         gl.useProgram(program);
 
-        // Plane with detailed components
+        // Simplified plane
         const planeVertices = new Float32Array([
-            0.0, 0.7, 0.0,  1, 1, 1,      // Nose
-           -1.5, 0.3, 0.8,  0.8, 0.8, 0.8, // Left wing
-            1.5, 0.3, 0.8,  0.8, 0.8, 0.8, // Right wing
-           -0.6, 0.3,-1.0,  0.7, 0.7, 0.7, // Tail left
-            0.6, 0.3,-1.0,  0.7, 0.7, 0.7, // Tail right
-            0.0,-0.3,-1.2,  0.7, 0.7, 0.7, // Tail bottom
-           -1.2, 0.2, 0.6,  0.8, 0.8, 0.8, // Left flap
-            1.2, 0.2, 0.6,  0.8, 0.8, 0.8, // Right flap
-           -0.4, 0.4,-0.9,  0.7, 0.7, 0.7, // Rudder left
-            0.4, 0.4,-0.9,  0.7, 0.7, 0.7, // Rudder right
-           -0.8, 0.1, 0.9,  0.9, 0.9, 0.9, // Left engine
-            0.8, 0.1, 0.9,  0.9, 0.9, 0.9  // Right engine
+            0.0, 0.5, 0.0,  1, 1, 1,
+           -0.8, 0.1, 0.5,  0.8, 0.8, 0.8,
+            0.8, 0.1, 0.5,  0.8, 0.8, 0.8,
+           -0.3, 0.1,-0.6,  0.7, 0.7, 0.7,
+            0.3, 0.1,-0.6,  0.7, 0.7, 0.7,
+            0.0,-0.1,-0.7,  0.7, 0.7, 0.7
         ]);
-        const planeIndices = new Uint16Array([0, 1, 2, 0, 3, 4, 0, 5, 3, 1, 6, 2, 2, 7, 1, 3, 8, 4, 4, 9, 3, 1, 10, 2, 2, 11, 1]);
- 
+        const planeIndices = new Uint16Array([0, 1, 2, 0, 3, 4, 0, 5, 3]);
 
-        // Terrain with varied topography
+        // Reduced terrain
         const terrainVertices = [];
         const terrainIndices = [];
-        const gridSize = 80;
-        for (let x = -30; x < 30; x += 0.75) {
-            for (let z = -30; z < 30; z += 0.75) {
-                let y = Math.sin(x * 0.07) * Math.cos(z * 0.07) * 2.5 + (Math.random() - 0.5) * 0.5;
-                let color = [0.1 + Math.random() * 0.25, 0.3 + Math.random() * 0.35, 0.1];
-                if (Math.abs(x - 5) < 3 && z > 5 && z < 15) { 
-                    y = 0; 
-                    color = [0.75, 0.75, 0.75]; 
-                    if (Math.abs(x - 5) < 0.3 && Math.abs(z % 1.5) < 0.1) color = [1, 1, 0]; 
-                }
+        const gridSize = 40; // Smaller grid for mobile
+        for (let x = -10; x < 10; x += 0.5) {
+            for (let z = -10; z < 10; z += 0.5) {
+                let y = Math.sin(x * 0.2) * Math.cos(z * 0.2) * 0.8;
+                let color = [0.2, 0.5, 0.2];
+                if (Math.abs(x - 5) < 1 && z > 8 && z < 10) { y = 0; color = [0.7, 0.7, 0.7]; }
                 terrainVertices.push(x, y, z, ...color);
             }
         }
@@ -148,27 +126,26 @@
             }
         }
 
-        // Clouds with ray-marched effect (simulated)
+        // Minimal clouds
         const cloudVertices = [];
         const cloudIndices = [];
-        for (let i = 0; i < 20; i++) {
-            const x = (Math.random() - 0.5) * 50;
-            const y = 7 + Math.random() * 8;
-            const z = (Math.random() - 0.5) * 50;
-            const s = 2 + Math.random() * 2;
+        for (let i = 0; i < 5; i++) {
+            const x = (Math.random() - 0.5) * 15;
+            const y = 3 + Math.random() * 3;
+            const z = (Math.random() - 0.5) * 15;
+            const s = 0.8;
             cloudVertices.push(
-                x-s, y-s, z-s, 0.8, 0.8, 0.85,
-                x+s, y-s, z-s, 0.8, 0.8, 0.85,
-                x+s, y+s, z-s, 0.8, 0.8, 0.85,
-                x-s, y+s, z-s, 0.8, 0.8, 0.85,
-                x-s, y-s, z+s, 0.8, 0.8, 0.85,
-                x+s, y-s, z+s, 0.8, 0.8, 0.85,
-                x+s, y+s, z+s, 0.8, 0.8, 0.85,
-                x-s, y+s, z+s, 0.8, 0.8, 0.85
+                x-s, y-s, z-s, 0.9, 0.9, 0.9,
+                x+s, y-s, z-s, 0.9, 0.9, 0.9,
+                x+s, y+s, z-s, 0.9, 0.9, 0.9,
+                x-s, y+s, z-s, 0.9, 0.9, 0.9,
+                x-s, y-s, z+s, 0.9, 0.9, 0.9,
+                x+s, y-s, z+s, 0.9, 0.9, 0.9,
+                x+s, y+s, z+s, 0.9, 0.9, 0.9,
+                x-s, y+s, z+s, 0.9, 0.9, 0.9
             );
             const o = i * 8;
-            cloudIndices.push(o, o+1, o+2, o, o+2, o+3, o+4, o+5, o+6, o+4, o+6, o+7,
-                             o, o+1, o+5, o, o+5, o+4, o+3, o+2, o+6, o+3, o+6, o+7);
+            cloudIndices.push(o, o+1, o+2, o, o+2, o+3, o+4, o+5, o+6, o+4, o+6, o+7);
         }
 
         const planeVBuffer = gl.createBuffer();
@@ -200,74 +177,35 @@
         const modelViewMatrix = gl.getUniformLocation(program, 'uModelViewMatrix');
         const projectionMatrix = gl.getUniformLocation(program, 'uProjectionMatrix');
 
-        // Rain particles
-        const rainCanvas = document.getElementById('rain');
-        rainCanvas.width = canvas.width;
-        rainCanvas.height = canvas.height;
-        const rainCtx = rainCanvas.getContext('2d');
-        const rainDrops = [];
-
         // Game state
         let pitch = 0, roll = 0, yaw = 0, throttle = 0, flaps = 0, altitude = 0, speed = 0, posX = 5, posZ = 10;
-        let fuel = 100, damage = 0, score = 0, skillPoints = 0, highScore = localStorage.getItem('highScore') || 0, gameState = 'start';
-        let windX = 0, windZ = 0, mission = 'init', difficulty = 'tutorial', cockpitView = false, time = 0;
-        let engineLeft = true, engineRight = true, icing = 0, weather = 'clear', shadowAngle = 0;
+        let fuel = 100, score = 0, gameState = 'start';
         const startScreen = document.getElementById('startScreen');
         const endScreen = document.getElementById('endScreen');
         const cockpit = document.getElementById('cockpit');
         const narrator = document.getElementById('narrator');
 
-        // Audio
+        // Audio (simplified for mobile)
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const engineLeftOsc = audioCtx.createOscillator();
-        engineLeftOsc.type = 'sawtooth';
-        engineLeftOsc.frequency.setValueAtTime(100, audioCtx.currentTime);
-        const engineLeftGain = audioCtx.createGain();
-        engineLeftGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        engineLeftOsc.connect(engineLeftGain);
-        engineLeftGain.connect(audioCtx.destination);
-
-        const engineRightOsc = audioCtx.createOscillator();
-        engineRightOsc.type = 'sawtooth';
-        engineRightOsc.frequency.setValueAtTime(100, audioCtx.currentTime);
-        const engineRightGain = audioCtx.createGain();
-        engineRightGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        engineRightOsc.connect(engineRightGain);
-        engineRightGain.connect(audioCtx.destination);
-
-        function playSound(freq, duration, type = 'sine') {
-            const osc = audioCtx.createOscillator();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            const gain = audioCtx.createGain();
-            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
-        }
-
-        function narrate(text, duration) {
-            narrator.textContent = text;
-            narrator.style.display = 'block';
-            setTimeout(() => narrator.style.display = 'none', duration * 1000);
-        }
+        const engine = audioCtx.createOscillator();
+        engine.type = 'sawtooth';
+        engine.frequency.setValueAtTime(100, audioCtx.currentTime);
+        const engineGain = audioCtx.createGain();
+        engineGain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+        engine.connect(engineGain);
+        engineGain.connect(audioCtx.destination);
 
         window.addEventListener('deviceorientation', (e) => {
             if (gameState !== 'flying') return;
-            roll = Math.max(-0.8, Math.min(0.8, (e.beta || 0) * 0.035));
-            pitch = Math.max(-0.8, Math.min(0.8, (e.gamma || 0) * 0.035));
-            document.getElementById('pitchLine').setAttribute('y2', 40 + roll * 30);
-            document.getElementById('rollLine').setAttribute('x1', 40 - pitch * 30);
-            document.getElementById('rollLine').setAttribute('x2', 40 + pitch * 30);
-            document.getElementById('altNeedle').setAttribute('transform', `rotate(${altitude * 15} 50 50)`);
-            document.getElementById('spdNeedle').setAttribute('transform', `rotate(${speed * 300} 50 50)`);
+            roll = Math.max(-0.5, Math.min(0.5, (e.beta || 0) * 0.02));
+            pitch = Math.max(-0.5, Math.min(0.5, (e.gamma || 0) * 0.02));
+            document.getElementById('pitchLine').setAttribute('y2', 20 + roll * 15);
+            document.getElementById('rollLine').setAttribute('x1', 20 - pitch * 15);
+            document.getElementById('rollLine').setAttribute('x2', 20 + pitch * 15);
         });
         document.getElementById('throttle').addEventListener('input', (e) => {
             throttle = e.target.value / 100;
-            if (engineLeft) engineLeftOsc.frequency.setValueAtTime(80 + throttle * 400, audioCtx.currentTime);
-            if (engineRight) engineRightOsc.frequency.setValueAtTime(80 + throttle * 400, audioCtx.currentTime);
+            engine.frequency.setValueAtTime(80 + throttle * 200, audioCtx.currentTime);
         });
         document.getElementById('flaps').addEventListener('input', (e) => {
             flaps = e.target.value;
@@ -278,25 +216,12 @@
             cockpit.style.display = cockpitView ? 'block' : 'none';
         }
 
-        function startGame(diff) {
-            difficulty = diff;
-            windX = (Math.random() - 0.5) * (diff === 'tutorial' ? 0.003 : diff === 'explore' ? 0.015 : 0.06);
-            windZ = (Math.random() - 0.5) * (diff === 'tutorial' ? 0.003 : diff === 'explore' ? 0.015 : 0.06);
+        function startGame() {
             gameState = 'flying';
             startScreen.style.opacity = '0';
-            setTimeout(() => startScreen.style.display = 'none', 1500);
-            engineLeftOsc.start();
-            engineRightOsc.start();
-            time = 0;
-            weather = Math.random() > 0.8 ? 'storm' : Math.random() > 0.4 ? 'rain' : 'clear';
-            const isNight = Math.random() > 0.5;
-            document.body.style.background = isNight ? 
-                (weather === 'storm' ? 'linear-gradient(#1f1f1f, #3a3a3a)' : 'linear-gradient(#0f1a44, #8a1f1f)') : 
-                (weather === 'storm' ? 'linear-gradient(#555555, #888888)' : 'linear-gradient(#87CEEB, #FFFFFF)');
-            gl.clearColor(isNight ? (weather === 'storm' ? 0.12 : 0.06) : (weather === 'storm' ? 0.33 : 0.53), 
-                          isNight ? (weather === 'storm' ? 0.12 : 0.1) : (weather === 'storm' ? 0.52 : 0.81), 
-                          isNight ? (weather === 'storm' ? 0.12 : 0.27) : (weather === 'storm' ? 0.52 : 0.92), 1.0);
-            narrate(diff === 'tutorial' ? 'Welcome, pilot. Let’s learn the basics.' : 'Flight commencing. Sky’s yours!', 4);
+            setTimeout(() => startScreen.style.display = 'none', 1000);
+            engine.start();
+            narrate('Tilt to steer, throttle up!', 3);
         }
 
         function resetGame() {
@@ -308,150 +233,64 @@
             posX = 5;
             posZ = 10;
             fuel = 100;
-            damage = 0;
             score = 0;
-            mission = 'init';
-            engineLeft = engineRight = true;
-            icing = 0;
             gameState = 'flying';
             endScreen.style.display = 'none';
-            engineLeftOsc.stop();
-            engineRightOsc.stop();
-            engineLeftOsc.disconnect();
-            engineRightOsc.disconnect();
-            startGame(difficulty);
+            engine.stop();
+            engine.disconnect();
+            startGame();
         }
 
-        function renderRain() {
-            if (weather !== 'rain' && weather !== 'storm') return;
-            rainCtx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
-            rainCtx.fillStyle = 'rgba(150, 180, 255, 0.5)';
-            if (rainDrops.length < 100) {
-                for (let i = 0; i < 5; i++) rainDrops.push({ x: Math.random() * rainCanvas.width, y: Math.random() * rainCanvas.height, v: 5 + Math.random() * 5 });
-            }
-            rainDrops.forEach((drop, i) => {
-                drop.y += drop.v;
-                if (drop.y > rainCanvas.height) rainDrops.splice(i, 1);
-                rainCtx.fillRect(drop.x, drop.y, 1, 3);
-            });
+        function narrate(text, duration) {
+            narrator.textContent = text;
+            narrator.style.display = 'block';
+            setTimeout(() => narrator.style.display = 'none', duration * 1000);
         }
 
         function render() {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            renderRain();
 
             if (gameState === 'flying') {
-                time += 0.016;
-                shadowAngle = (time % 120) / 120 * 360;
+                // Simplified physics for mobile
+                const aoa = roll + flaps * 0.1;
+                speed = Math.max(0.02, Math.min(0.3, speed + (throttle * 0.005 - speed * 0.015)));
+                const lift = 1.5 * speed * speed * Math.sin(aoa) * (altitude < 0.5 ? 1.2 : 1);
+                const drag = 0.05 * speed * speed;
+                altitude += lift - 0.01 - drag * Math.cos(aoa);
+                posX += Math.cos(yaw) * speed;
+                posZ += Math.sin(yaw) * speed;
+                yaw += pitch * 0.03;
+                fuel -= throttle * 0.02;
+                score += speed * 0.5;
 
-                // Physics
-                const aoa = roll + flaps * 0.2;
-                const liftCoefficient = 1.8 + flaps * 0.5 - icing * 0.4;
-                const thrust = (engineLeft ? throttle * 0.004 : 0) + (engineRight ? throttle * 0.004 : 0);
-                speed = Math.max(0.01, Math.min(0.45, speed + (thrust - speed * 0.025)));
-                const lift = liftCoefficient * speed * speed * Math.sin(aoa) * (altitude < 0.7 ? 1.5 : 1);
-                const drag = 0.08 * speed * speed * (1 + flaps * 0.3);
-                const sideSlip = pitch * speed * 0.06;
-                const turbulence = weather === 'storm' ? (Math.sin(time * 5) + Math.cos(time * 3)) * 0.02 : 0;
-                altitude += lift - 0.015 - drag * Math.cos(aoa) + (altitude > 6 && Math.random() < 0.015 ? 0.03 : 0) + turbulence;
-                posX += (Math.cos(yaw) * speed + windX - sideSlip);
-                posZ += (Math.sin(yaw) * speed + windZ);
-                yaw += pitch * 0.04 - windX * 0.08 + sideSlip * 0.04 + (engineLeft !== engineRight ? (engineLeft ? -0.01 : 0.01) : 0);
-                fuel -= throttle * (engineLeft && engineRight ? 0.025 : 0.015);
-                damage += (weather === 'storm' && Math.random() < 0.008) || (speed > 0.4 && Math.random() < 0.01) ? 1.5 : 0;
-
-                // Weather and emergencies
-                if (weather === 'storm' || weather === 'rain') {
-                    windX += (Math.random() - 0.5) * (difficulty === 'challenge' ? 0.05 : 0.025);
-                    windZ += (Math.random() - 0.5) * (difficulty === 'challenge' ? 0.05 : 0.025);
-                    icing += altitude > 5 && Math.random() < (weather === 'storm' ? 0.015 : 0.005) ? 0.15 : 0;
-                }
-                if ((difficulty === 'challenge' || weather === 'storm') && time > 25 && Math.random() < 0.001) {
-                    if (engineLeft && !engineRight) {
-                        engineRight = false;
-                        playSound(200, 2, 'square');
-                        narrate('Right engine out! Compensate!', 3);
-                    } else if (engineRight) {
-                        engineLeft = false;
-                        playSound(200, 2, 'square');
-                        narrate('Left engine failed! Adjust yaw!', 3);
-                    }
-                }
-                if (damage >= 100 || (!engineLeft && !engineRight && altitude < 1)) {
-                    gameState = 'crashed';
-                    document.getElementById('endMsg').textContent = damage >= 100 ? 'Structural Collapse!' : 'Total Engine Loss!';
-                    playSound(80, 2);
-                }
-
-                const terrainHeight = Math.max(0, Math.sin(posX * 0.07) * Math.cos(posZ * 0.07) * 2.5 + (Math.random() - 0.5) * 0.5);
-                const isOverRunway = Math.abs(posX - 5) < 3 && posZ > 5 && posZ < 15;
+                const terrainHeight = Math.sin(posX * 0.2) * Math.cos(posZ * 0.2) * 0.8;
+                const isOverRunway = Math.abs(posX - 5) < 1 && posZ > 8 && posZ < 10;
                 if (altitude <= terrainHeight || fuel <= 0) {
-                    if ((mission === 'landing' || mission === 'emergency') && isOverRunway && speed < 0.04 && altitude < 0.45 && Math.abs(roll) < 0.15) {
+                    if (isOverRunway && speed < 0.06 && altitude < 0.2 && Math.abs(roll) < 0.1) {
                         gameState = 'landed';
-                        document.getElementById('endMsg').textContent = 'Safe Landing!';
-                        playSound(1500, 0.7);
-                        score += 1000;
-                        skillPoints += difficulty === 'challenge' ? 3 : 2;
+                        document.getElementById('endMsg').textContent = 'Landed!';
+                        score += 200;
                     } else {
                         gameState = 'crashed';
-                        document.getElementById('endMsg').textContent = fuel <= 0 ? 'Fuel Depleted!' : 'Crashed!';
-                        playSound(100, 2);
+                        document.getElementById('endMsg').textContent = fuel <= 0 ? 'No Fuel!' : 'Crashed!';
                     }
-                    highScore = Math.max(highScore, Math.floor(score));
-                    localStorage.setItem('highScore', highScore);
                     document.getElementById('endScore').textContent = Math.floor(score);
-                    document.getElementById('highScore').textContent = highScore;
-                    document.getElementById('leaderboard').textContent = `${Math.floor(score * 1.4)}, ${Math.floor(score * 1.1)}, ${Math.floor(score * 0.9)}`;
                     endScreen.style.display = 'block';
-                    engineLeftGain.gain.setValueAtTime(0, audioCtx.currentTime + 0.5);
-                    engineRightGain.gain.setValueAtTime(0, audioCtx.currentTime + 0.5);
+                    engineGain.gain.setValueAtTime(0, audioCtx.currentTime + 0.5);
                 }
-
-                // Dynamic missions
-                if (mission === 'init' && time > 4) {
-                    mission = difficulty === 'tutorial' ? 'takeoff' : 'explore';
-                    document.getElementById('mission').textContent = difficulty === 'tutorial' ? 'Takeoff' : 'Explore';
-                    narrate(difficulty === 'tutorial' ? 'Increase throttle to lift off.' : 'Free flight engaged.', 4);
-                } else if (mission === 'takeoff' && altitude > 10) {
-                    mission = 'cruise';
-                    document.getElementById('mission').textContent = 'Cruise';
-                    narrate('Level off and explore.', 3);
-                    score += 250;
-                    skillPoints += 1;
-                } else if (mission === 'cruise' && time > 20 && difficulty !== 'tutorial') {
-                    mission = Math.random() > 0.5 ? 'landing' : 'emergency';
-                    document.getElementById('mission').textContent = mission === 'landing' ? 'Landing' : 'Emergency';
-                    narrate(mission === 'landing' ? 'Return to runway.' : 'Find runway for emergency landing!', 4);
-                    score += 500;
-                } else if (mission === 'explore' && time > 30 && difficulty !== 'tutorial') {
-                    mission = Math.random() > 0.3 ? 'landing' : 'waypoint';
-                    document.getElementById('mission').textContent = mission === 'landing' ? 'Landing' : 'Waypoint';
-                    narrate(mission === 'landing' ? 'Land at the runway.' : 'Fly to x=10, z=-15.', 4);
-                    score += 300;
-                } else if (mission === 'waypoint' && Math.abs(posX - 10) < 2 && Math.abs(posZ + 15) < 2) {
-                    mission = 'landing';
-                    document.getElementById('mission').textContent = 'Landing';
-                    narrate('Waypoint reached. Land now.', 4);
-                    score += 700;
-                    skillPoints += 2;
-                }
-                score += speed * (difficulty === 'tutorial' ? 0.2 : difficulty === 'explore' ? 0.8 : 2.5);
-                document.getElementById('skill').textContent = skillPoints < 5 ? 'Novice' : skillPoints < 15 ? 'Pilot' : 'Ace';
 
                 // HUD
                 document.getElementById('alt').textContent = altitude.toFixed(1);
                 document.getElementById('spd').textContent = (speed * 100).toFixed(0);
                 document.getElementById('fuel').textContent = Math.max(0, fuel.toFixed(0));
-                document.getElementById('dmg').textContent = Math.min(100, damage.toFixed(0));
-                document.getElementById('score').textContent = Math.floor(score);
             }
 
             const aspect = canvas.width / canvas.height;
             const pMatrix = [
-                3.5 / aspect, 0, 0, 0,
-                0, 3.5, 0, 0,
+                2 / aspect, 0, 0, 0,
+                0, 2, 0, 0,
                 0, 0, -1, -1,
-                0, 0, cockpitView ? -0.8 : -18, 1
+                0, 0, cockpitView ? -1 : -10, 1
             ];
             gl.uniformMatrix4fv(projectionMatrix, false, pMatrix);
 
@@ -488,16 +327,15 @@
             gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
             gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 24, 12);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, planeIBuffer);
-            const flapAngle = flaps * 0.3;
             const planeMatrix = cockpitView ? [
                 1, 0, 0, 0,
                 0, 1, 0, 0,
                 0, 0, 1, 0,
                 0, 0, 0, 1
             ] : [
-                Math.cos(yaw), Math.sin(roll) * 0.6, Math.sin(yaw), 0,
-                -Math.sin(roll) * 0.6, 1, Math.sin(pitch) * 0.6, 0,
-                -Math.sin(yaw), -Math.sin(pitch) * 0.6, Math.cos(yaw), 0,
+                Math.cos(yaw), Math.sin(roll) * 0.3, Math.sin(yaw), 0,
+                -Math.sin(roll) * 0.3, 1, Math.sin(pitch) * 0.3, 0,
+                -Math.sin(yaw), -Math.sin(pitch) * 0.3, Math.cos(yaw), 0,
                 0, altitude, -5, 1
             ];
             gl.uniformMatrix4fv(modelViewMatrix, false, planeMatrix);
@@ -508,9 +346,13 @@
 
         gl.clearColor(0.53, 0.81, 0.92, 1.0);
         gl.enable(gl.DEPTH_TEST);
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         render();
+
+        function narrate(text, duration) {
+            narrator.textContent = text;
+            narrator.style.display = 'block';
+            setTimeout(() => narrator.style.display = 'none', duration * 1000);
+        }
     </script>
 </body>
 </html>
